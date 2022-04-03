@@ -1,4 +1,4 @@
-import { Stmt, Expr } from "./ast";
+import { Stmt, Expr, BinaryOp } from "./ast";
 import { parse } from "./parser";
 
 // https://learnxinyminutes.com/docs/wasm/
@@ -49,9 +49,34 @@ function codeGenExpr(expr : Expr) : Array<string> {
     case "builtin1":
       const argStmts = codeGenExpr(expr.arg);
       return argStmts.concat([`(call $${expr.name})`]);
+    case "builtin2":
+      const argStmts1 = codeGenExpr(expr.arg1);
+      const argStmts2 = codeGenExpr(expr.arg2);
+      return [...argStmts1, ...argStmts2, `(call $${expr.name})`];  
     case "num":
       return ["(i32.const " + expr.value + ")"];
     case "id":
       return [`(local.get $${expr.name})`];
+      case "binaryexp":
+        const leftStatements = codeGenExpr(expr.left);
+        const rightStatements = codeGenExpr(expr.right);
+        const operatorStatements = codeGenBinOp(expr.op);
+        return [...leftStatements, ...rightStatements, operatorStatements]
   }
 }
+
+function codeGenBinOp(op : BinaryOp) : string {
+  switch(op) {
+    case BinaryOp.Plus:
+      return "(i32.add)"
+    case BinaryOp.Minus:
+      return "(i32.sub)"
+    case BinaryOp.Mul:
+      return "(i32.mul)"
+  }
+
+}
+
+
+
+// ... is representing in list form

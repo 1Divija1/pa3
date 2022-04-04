@@ -23,6 +23,8 @@ if(typeof process !== "undefined") {
 
 export async function run(source : string, config: any) : Promise<number> {
   const wabtInterface = await wabt();
+  if(source == "")
+    throw new Error("No Input");
   const parsed = parse(source);
   var returnType = "";
   var returnExpr = "";
@@ -44,9 +46,20 @@ export async function run(source : string, config: any) : Promise<number> {
       ${returnExpr}
     )
   )`;
-  const myModule = wabtInterface.parseWat("test.wat", wasmSource);
-  var asBinary = myModule.toBinary({});
-  var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
-  const result = (wasmModule.instance.exports.exported_func as any)();
-  return result;
+  try{
+    const myModule = wabtInterface.parseWat("test.wat", wasmSource);
+    var asBinary = myModule.toBinary({});
+    var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
+    const result = (wasmModule.instance.exports.exported_func as any)();
+    return result;
+  }
+  catch(e){
+    if(e.toString().includes("undefined local variable")){
+      throw new Error("Reference Error : variable not defined");
+    }
+    else{
+      throw new Error("Unknown Error");
+    }
+  }
+  
 }

@@ -140,18 +140,10 @@ export function traverse(c : TreeCursor, s : string) : Array<Stmt> {
   }
 }
 export function parse(source : string) : Array<Stmt> {
-  const input = " x = 10 \n print(10)";
 
-  const tree = parser.parse(source);
-  console.log(stringifyTree(tree.cursor(), source, 0));
-
-  const cursor = tree.cursor();
-
-  cursor.firstChild();
-  cursor.nextSibling();
-
-  console.log(cursor.type.name);
-  console.log(input.substring(cursor.from, cursor.to));
-
-  return traverse(tree.cursor(), source);
+  const t = parser.parse(source);
+  const tree = stringifyTree(t.cursor(), source, 0);
+  if(tree == "Script\n")
+    throw new Error("No Input");
+  return traverse(t.cursor(), source);
 }

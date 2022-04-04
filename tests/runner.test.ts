@@ -97,7 +97,7 @@ describe('run(source, config) function', () => {
     expect(result).to.equal(3);
   });
 
-  //9 - testing pow
+  //9 - testing print and max
   it('prints and max combination', async() => {
     var result = await run("x = 2 \n y = 4 \n print(max(x,y))", config);
     expect(result).to.equal(4);

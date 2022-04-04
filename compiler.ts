@@ -57,11 +57,11 @@ function codeGenExpr(expr : Expr) : Array<string> {
       return ["(i32.const " + expr.value + ")"];
     case "id":
       return [`(local.get $${expr.name})`];
-      case "binaryexp":
-        const leftStatements = codeGenExpr(expr.left);
-        const rightStatements = codeGenExpr(expr.right);
-        const operatorStatements = codeGenBinOp(expr.op);
-        return [...leftStatements, ...rightStatements, operatorStatements]
+    case "binaryexp":
+      const leftStatements = codeGenExpr(expr.left);
+      const rightStatements = codeGenExpr(expr.right);
+      const operatorStatements = codeGenBinOp(expr.op);
+      return [...leftStatements, ...rightStatements, operatorStatements]
   }
 }
 

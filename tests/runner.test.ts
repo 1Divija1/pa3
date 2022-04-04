@@ -13,6 +13,12 @@ const importObject = {
       importObject.output += "\n";
       return arg;
     },
+    abs: (arg : any) => {
+      return Math.abs(arg);
+    },
+    min: Math.min,
+    max: Math.max,
+    pow: Math.pow
   },
 
   output: ""
@@ -60,7 +66,42 @@ describe('run(source, config) function', () => {
   // implement it. You will make this test pass!
   it('adds two numbers', async() => {
     const result = await run("2 + 3", config);
+    console.log(result)
     expect(result).to.equal(5);
+  });
+
+  // 5- we are checking for basic abs  
+  // resulting from running the program
+  it('finds absolute of a negative number', async() => {
+    var result = await run("abs(-1)", config);
+    expect(result).to.equal(1);
+  });
+
+  // 6- we are checking for more abs cases  
+  // resulting from running the program
+  it('prints absolute of value returned by min funtion', async() => {
+    var result = await run("abs(min(1,-2))", config);
+    expect(result).to.equal(2);
+  });
+
+  // 7- we are checking for more abs cases  
+  // resulting from running the program
+  it('prints absolute of value returned by pow funtion', async() => {
+    var result = await run("abs(pow(-2,3))", config);
+    expect(result).to.equal(8);
+  });
+
+  //8 - testing pow
+  it('prints pow funtion', async() => {
+    var result = await run("pow1 = 1 \n pow2 = 3\n pow(pow2,pow1)\n", config);
+    expect(result).to.equal(3);
+  });
+
+  //9 - testing pow
+  it('prints and max combination', async() => {
+    var result = await run("x = 2 \n y = 4 \n print(max(x,y))", config);
+    expect(result).to.equal(4);
+    //expect(config.importObject.output).to.equal("4");
   });
 
   // TODO: add additional tests here to ensure the compiler runs as expected

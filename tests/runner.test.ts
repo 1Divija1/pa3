@@ -104,5 +104,26 @@ describe('run(source, config) function', () => {
     //expect(config.importObject.output).to.equal("4");
   });
 
+  //10 - combination testing - 1
+  it('combination tests - 1', async() => {
+    var result = await run("max(min(2,3),abs(-5))", config);
+    expect(result).to.equal(5);
+    //expect(config.importObject.output).to.equal("4");
+  });
+
+  //11 - combination testing - 2
+  it('combination tests - 2', async() => {
+    var result = await run("print(max(min(2,3),abs(-5)))", config);
+    expect(result).to.equal(5);
+    //expect(config.importObject.output).to.equal("4");
+  });
+
+  //12 - combination testing - 3
+  it('combination tests - 3', async() => {
+    var result = await run("pow(2,print(max(min(2,3),abs(-5))))", config);
+    expect(result).to.equal(32);
+    //expect(config.importObject.output).to.equal("4");
+  });  
   // TODO: add additional tests here to ensure the compiler runs as expected
 });
+

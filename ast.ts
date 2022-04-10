@@ -1,13 +1,31 @@
+export type Program<A> = { a?: A, varinits : VarInit<A>[], fundefs : FunDef<A>[], stmts : Stmt<A>[]}
 
-export type Stmt =
-  | { tag: "define", name: string, value: Expr }
-  | { tag: "expr", expr: Expr }
+export type VarInit<A> = { a?: A, name : String, type : TypedVar<A>[] , init : Literal<A> }
 
-export type Expr =
-    { tag: "num", value: number }
-  | { tag: "id", name: string }
-  | { tag: "builtin1", name: string, arg: Expr }
-  | { tag: "builtin2", name: string, arg1: Expr, arg2: Expr }
-  | { tag: "binaryexp", op: BinaryOp, left: Expr, right: Expr}
+export type FunDef<A> = { a?: A, name: String, params : TypedVar<A>[], ret : Type, inits : VarInit<A>[], body : Stmt<A>[] }
 
-  export enum BinaryOp { Plus = "PLUS", Minus = "MINUS", Mul = "MUL" }
+export type TypedVar<A> = { a?: A, name: String, type: Type }
+
+
+export type Stmt<A> =
+  | { a?: A, tag: "assign", name: string, value: Expr<A> }
+  | { a?: A, tag: "return", expr: Expr<A> }
+  | { a?: A, tag: "pass" }
+  | { a?: A, tag: "expr", expr: Expr<A> }
+
+export type Expr<A> =
+    { a?: A, tag: "id", name: string }
+  | { a?: A, tag: "builtin1", name: string, arg: Expr<A> }
+  | { a?: A, tag: "builtin2", name: string, arg1: Expr<A>, arg2: Expr<A> }
+  | { a?: A, tag: "binaryexp", op: BinaryOp, left: Expr<A>, right: Expr<A> }
+  | { a?: A, tag: "call", name:string, args: Expr<A>[] }
+  | { a?: A, tag: "literal", literal: Literal<A> }
+
+export type Literal<A> = 
+    { a?: A, tag : "num", value: number}
+  | { a?: A, tag : "bool", value: boolean }
+  | { a?: A, tag : "none"}
+
+  export enum BinaryOp { Plus = "+", Minus = "-", Mul = "*" }
+
+  export enum Type {int, bool, none}

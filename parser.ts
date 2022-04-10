@@ -3,8 +3,8 @@ import {TreeCursor} from "lezer-tree";
 import {BinaryOp, Expr, Stmt} from "./ast";
 import { stringifyTree } from "./treeprinter";
 
-export function traverseArgs(c : TreeCursor, s : string) : Array<Expr> {
-  var args : Array<Expr> = [];
+export function traverseArgs(c : TreeCursor, s : string) : Array<Expr<null>> {
+  var args : Array<Expr<null>> = [];
   c.firstChild(); // go into arglist
   while(c.nextSibling()) {
     args.push(traverseExpr(c, s));
@@ -14,7 +14,7 @@ export function traverseArgs(c : TreeCursor, s : string) : Array<Expr> {
   return args;
 }
 
-export function traverseExpr(c : TreeCursor, s : string) : Expr {
+export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
   switch(c.type.name) {
     case "Number":
       return {
@@ -101,7 +101,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr {
   }
 }
 
-export function traverseStmt(c : TreeCursor, s : string) : Stmt {
+export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
   switch(c.node.type.name) {
     case "AssignStatement":
       c.firstChild(); // go to name
@@ -125,7 +125,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt {
   }
 }
 
-export function traverse(c : TreeCursor, s : string) : Array<Stmt> {
+export function traverse(c : TreeCursor, s : string) : Array<Stmt<null>> {
   switch(c.node.type.name) {
     case "Script":
       const stmts = [];
@@ -139,7 +139,7 @@ export function traverse(c : TreeCursor, s : string) : Array<Stmt> {
       throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);
   }
 }
-export function parse(source : string) : Array<Stmt> {
+export function parse(source : string) : Array<Stmt<null>> {
 
   const t = parser.parse(source);
   const tree = stringifyTree(t.cursor(), source, 0);

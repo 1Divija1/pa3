@@ -1,5 +1,6 @@
 import { Stmt, Expr, BinaryOp } from "./ast";
 import { parse } from "./parser";
+import {  } from "./typecheck";
 
 // https://learnxinyminutes.com/docs/wasm/
 

@@ -1,7 +1,66 @@
 import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
-import {BinaryOp, Expr, Stmt} from "./ast";
+import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal} from "./ast";
 import { stringifyTree } from "./treeprinter";
+
+function traverseVarInit(c : TreeCursor, s : string) : VarInit<null> {
+  c.firstChild // go to name
+  const typedVar = traverseTypedVar(c , s);
+  c.nextSibling(); // =
+  c.nextSibling(); //literal
+  const literal = traverseLiteral(c,s);
+  c.parent()
+  return { name: typedVar.name, type : typedVar.type , init : literal}
+
+}
+
+export function traverseLiteral(c: TreeCursor, s: string): Literal<null> {
+  switch (s.substring(c.from, c.to)) {
+    case "Number":
+      return {
+        tag: "num",
+        value: Number(s.substring(c.from, c.to))
+      }
+    case "Boolean":
+      return {
+        tag: "bool",
+        value: Boolean(s.substring(c.from, c.to))
+        }
+    case "None":
+      return {
+        tag: "none"
+      }
+    default:
+      throw new Error("TYPE ERROR : Literal not present");
+  }
+}
+
+function traverseTypedVar(c : TreeCursor, s : string) : TypedVar<null> {
+  const varDec = s.substring(c.from, c.to);
+  c.nextSibling();  // a - TypeDef
+  c.firstChild(); // :
+  c.nextSibling(); //int / bool
+  const type = traverseType(c,s)
+  c.parent(); // pop TypeDef
+  return { name : varDec , type : type}
+
+}
+
+export function traverseType(c: TreeCursor, s: string): Type {
+  switch (s.substring(c.from, c.to)) {
+    case "int":
+      return Type.int;
+    case "bool":
+      return Type.bool;
+    case "None":
+      return Type.none
+    default:
+      throw new Error("TYPE ERROR : Incorrect Type");
+  }
+}
+
+
+
 
 export function traverseArgs(c : TreeCursor, s : string) : Array<Expr<null>> {
   var args : Array<Expr<null>> = [];
@@ -18,10 +77,20 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
   switch(c.type.name) {
     case "Number":
       return {
-        tag: "num",
-        value: Number(s.substring(c.from, c.to))
+        tag: "literal",
+        literal : traverseLiteral(c, s)
       }
-
+    case "Boolean":
+      return {
+        tag: "literal",
+        literal : traverseLiteral(c, s)
+      }
+    case "None":
+      return {
+        tag: "literal",
+        literal : traverseLiteral(c, s)
+      }
+      
     case "VariableName":
       return {
         tag: "id",
@@ -141,9 +210,18 @@ export function traverse(c : TreeCursor, s : string) : Array<Stmt<null>> {
 }
 export function parse(source : string) : Array<Stmt<null>> {
 
-  const t = parser.parse(source);
-  const tree = stringifyTree(t.cursor(), source, 0);
-  if(tree == "Script\n")
-    throw new Error("No Input");
-  return traverse(t.cursor(), source);
+ const input = " x = 10 \n print(10)";
+
+  const tree = parser.parse(source);
+  console.log(stringifyTree(tree.cursor(), source, 0));
+
+  const cursor = tree.cursor();
+
+  cursor.firstChild();
+  cursor.nextSibling();
+
+  console.log(cursor.type.name);
+  console.log(input.substring(cursor.from, cursor.to));
+
+  return traverse(tree.cursor(), source);
 }

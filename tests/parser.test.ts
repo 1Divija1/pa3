@@ -1,7 +1,7 @@
 import * as mocha from 'mocha';
 import {expect} from 'chai';
 import { parser } from 'lezer-python';
-import { traverseExpr, traverseStmt, traverse, parse } from '../parser';
+import { traverseExpr, parse } from '../parser';
 
 // We write tests for each function in parser.ts here. Each function gets its 
 // own describe statement. Each it statement represents a single test. You

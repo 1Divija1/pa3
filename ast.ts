@@ -1,10 +1,10 @@
 export type Program<A> = { a?: A, varinits : VarInit<A>[], fundefs : FunDef<A>[], stmts : Stmt<A>[]}
 
-export type VarInit<A> = { a?: A, name : String, type : TypedVar<A> , init : Literal<A> }
+export type VarInit<A> = { a?: A, name : string, type : TypedVar<A> , init : Literal<A> }
 
-export type FunDef<A> = { a?: A, name: String, params : TypedVar<A>[], ret : Type, inits : VarInit<A>[], body : Stmt<A>[] }
+export type FunDef<A> = { a?: A, name: string, params : TypedVar<A>[], ret : Type, inits : VarInit<A>[], body : Stmt<A>[] }
 
-export type TypedVar<A> = { a?: A, name: String, type: Type }
+export type TypedVar<A> = { a?: A, name: string, type: Type }
 
 
 export type Stmt<A> =
@@ -30,7 +30,7 @@ export type Literal<A> =
 
 export enum UnaryOp { Not = "not", Minus = "-" };
 
-export enum BinaryOp { Plus = "+", Minus = "-", Mul = "*", Div = "//" , Equal = "==" , NotEqual = "!=", LessEqual = "<=", GreaterEqual = ">=" , Less = "<", Greater = ">"}
+export enum BinaryOp { Plus = "+", Minus = "-", Mul = "*", Div = "//" , Mod = "%", Equal = "==" , NotEqual = "!=", LessEqual = "<=", GreaterEqual = ">=" , Less = "<", Greater = ">"}
 
 export enum Type {int, bool, none}
 

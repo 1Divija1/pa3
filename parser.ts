@@ -1,6 +1,6 @@
 import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
-import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal, UnaryOp} from "./ast";
+import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal, UnaryOp, FunDef, Program} from "./ast";
 import { stringifyTree } from "./treeprinter";
 
 function isVarDecl(c: TreeCursor, s: string) : Boolean {
@@ -9,9 +9,11 @@ function isVarDecl(c: TreeCursor, s: string) : Boolean {
     return false;
   c.firstChild();
   c.nextSibling();
-  if(c.type.name !== "TypeDef")
-    return false;
+  const name = c.type.name;
   c.parent();
+  // @ts-ignore
+  if(name !== "TypeDef")
+    return false;
   return true;
 }
 
@@ -77,9 +79,6 @@ export function traverseType(c: TreeCursor, s: string): Type {
   }
 }
 
-
-
-
 export function traverseArgs(c : TreeCursor, s : string) : Array<Expr<null>> {
   var args : Array<Expr<null>> = [];
   c.firstChild(); // go into arglist
@@ -116,43 +115,65 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
       }
 
     case "CallExpression":
-      c.firstChild();
+      c.firstChild(); // we will reach print / abs / max / min / pow / f
       const callName = s.substring(c.from, c.to);
-      c.nextSibling();
-      var args = traverseArgs(c , s);
-      if(args.length == 1){
-        if( callName!== "abs" && callName!== "print")
-          throw new Error("PARSE ERROR : unknown builtin1");
-        c.parent(); // pop CallExpression
+      if( callName == "abs" || callName == "print"){
+        c.nextSibling(); // arglist
+        c.firstChild(); // (
+        c.nextSibling();
+        const arg1 = traverseExpr( c , s);
+        c.parent(); // pop arglist
+        c.parent(); //pop call expression
         return {
           tag: "builtin1",
           name: callName,
-          arg: args[0]
-        };
-      } else if(args.length == 2) {
-        //buildin2 logic
-        if( callName!== "max" && callName!== "min" && callName!=="pow")
-          throw new Error("PARSE ERROR : unknown builtin2");
-        c.parent(); // pop CallExpression
-        return {
-          tag: "builtin2",
-          name: callName,
-          arg1: args[0],
-          arg2 : args[1]
+          arg: arg1
         };
 
       }
-      c.parent();
-      return {
-        tag : "call",
-        name : callName,
-        args : args
+      else if(callName == "pow" || callName == "max" || callName!== "min" ){
+        c.nextSibling(); // arglist
+        c.firstChild(); // (
+        c.nextSibling();
+        const arg1 = traverseExpr( c , s);
+        c.nextSibling() // op
+        c.nextSibling() // arg2
+        const arg2 = traverseExpr( c , s);
+        c.parent(); // pop arglist
+        c.parent(); //pop call expression
+        return {
+          tag: "builtin2",
+          name: callName,
+          arg1: arg1,
+          arg2 : arg2
+        };
+
       }
+        
+       else {
+        // for cases like f(1,2) or f(1,2,3) .. any number of arguments are possible
+        c.nextSibling(); // arglist
+        c.firstChild(); // (
+        c.nextSibling();
+        const argum: Expr<null>[] = [];
+        while (c.node.name != ")") {
+          c.nextSibling(); // skipping , by mistake (
+            argum.push(traverseExpr(c, s));          
+          c.nextSibling();
+          }
+        c.parent(); // pop arglist
+        c.parent(); //pop call expression
+        return {
+          tag: "call",
+          name: callName,
+          args : argum
+        };
+       }
     
       case "UnaryExpression":
-        c.firstChild();
+        c.firstChild(); // arg
         const argUnary = traverseExpr(c, s);
-        c.nextSibling();
+        c.nextSibling(); // op
         var op1 : UnaryOp;
         switch(s.substring(c.from, c.to)) {
           case "-":
@@ -168,9 +189,9 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
         return {tag: "unaryexp", op : op1, left : argUnary};
 
       case "BinaryExpression":
-        c.firstChild();
+        c.firstChild(); // left
         const left = traverseExpr(c, s);
-        c.nextSibling();
+        c.nextSibling(); // operator
         var op : BinaryOp;
         switch(s.substring(c.from, c.to)) {
           case "+":
@@ -184,6 +205,9 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
             break;
           case "//":
             op = BinaryOp.Div;
+            break;
+          case "%":
+            op = BinaryOp.Mod;
             break;
           case "<":
             op = BinaryOp.Less;
@@ -206,10 +230,16 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
           default:
             throw new Error("PARSE ERROR : Incorrect Operator")
         }
-        c.nextSibling();
+        c.nextSibling(); // right arg
         const right = traverseExpr(c, s);
-        c.parent(); //pop Binarty Expression
-        return {tag: "binaryexp", op, left, right};   
+        c.parent(); //pop Binary Expression
+        return {tag: "binaryexp", op, left, right}; 
+      case "ParanthesizedExpression":
+        c.firstChild();
+        c.nextSibling();
+        const expr = traverseExpr(c,s);
+        c.parent();
+        return expr;  
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
@@ -234,39 +264,124 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
       const expr = traverseExpr(c, s);
       c.parent(); // pop going into stmt
       return { tag: "expr", expr: expr }
+    case "PassStatement":
+      { tag : "pass"}
+    case "ReturnStatement":
+      c.firstChild();  // return
+      c.nextSibling(); // arg
+      const value1 = traverseExpr(c, s);
+      c.parent();
+      return { tag: "return", expr : value1 };
     default:
       throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
   }
 }
 
-export function traverse(c : TreeCursor, s : string) : Array<Stmt<null>> {
+export function traverseFunDef(c : TreeCursor, s : string) : FunDef<null>{
+  c.firstChild();  //def
+  c.nextSibling(); //function name
+  const functionName = s.substring(c.from, c.to);
+  c.nextSibling(); // ParamList
+  c.nextSibling(); // (
+  const paramList :TypedVar<null>[] = [];
+  while (c.node.name != ")") {
+    c.nextSibling(); // skipping , by mistake (
+    if(c.type.name === ')')break; 
+    paramList.push(traverseTypedVar(c, s));          
+    c.nextSibling();
+    }
+  c.parent();
+  c.nextSibling(); // TypeDef for return
+  var ret = Type.none ;
+  if(c.type.name === "TypeDef") {
+    c.firstChild(); // ->
+    c.nextSibling(); // return type
+    ret = traverseType(c,s);
+    c.parent(); // goes to parent
+  }
+  c.nextSibling(); //Body
+  c.firstChild(); //:
+  c.nextSibling(); // goes to first statement
+  // we will have variable dec and statements in body
+  const inits : VarInit<null>[] = [];
+  const body : Stmt<null>[] = [];
+  do{
+    if(isVarDecl(c,s)){
+      inits.push(traverseVarInit(c,s));
+    }
+    else if(isFunDef(c,s)){
+      throw new Error("PARSE ERROR : nested functions not handled");
+    }
+    else{
+      break;
+    }
+      
+    }
+  while(c.nextSibling())
+
+  do{
+    if (isVarDecl(c,s) || isFunDef(c,s)){
+      throw new Error("PARSE ERROR :  variables and functions declaration should be first")
+    }
+    body.push(traverseStmt(c,s));
+  } while(c.nextSibling())
+  c.parent(); //body
+  c.parent();
+  // if no return is present
+  if(ret == Type.none){
+    body.push({tag : "return", expr : { tag : "literal", literal : {tag : "none"}}})
+  }
+  return {name : functionName , params : paramList , ret , inits, body }
+}
+
+export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
   switch(c.node.type.name) {
+    // parsing variables and functions first
     case "Script":
-      const stmts = [];
+      const inits : VarInit<null>[] = [];
+      const body : Stmt<null>[] = [];
+      const funDefs : FunDef<null>[] = [];
       c.firstChild();
-      do {
-        stmts.push(traverseStmt(c, s));
+      do{
+        if(isVarDecl(c,s)){
+          inits.push(traverseVarInit(c,s));
+        }
+        else if(isFunDef(c,s)){
+          funDefs.push(traverseFunDef(c,s));
+        }
+        else{
+          break;
+        }
+          if(c.nextSibling){
+            continue;
+          }
+          else {
+            return {varinits : inits , fundefs : funDefs , stmts : body};
+          }
+        }
+      while(true)
+
+      do{
+        if(isVarDecl(c,s) || isFunDef(c,s)){
+          throw new Error("PARSE ERROR : variables and functions declaration should be first");
+        }
+        body.push(traverseStmt(c,s));
+       
       } while(c.nextSibling())
-      console.log("traversed " + stmts.length + " statements ", stmts, "stopped at " , c.node);
-      return stmts;
+      return {varinits : inits , fundefs : funDefs , stmts : body};
     default:
       throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);
   }
+
+
 }
-export function parse(source : string) : Array<Stmt<null>> {
 
- const input = " x = 10 \n print(10)";
 
-  const tree = parser.parse(source);
-  console.log(stringifyTree(tree.cursor(), source, 0));
+export function parse(source : string) : Program<null>{
 
-  const cursor = tree.cursor();
-
-  cursor.firstChild();
-  cursor.nextSibling();
-
-  console.log(cursor.type.name);
-  console.log(input.substring(cursor.from, cursor.to));
-
-  return traverse(tree.cursor(), source);
+  const t = parser.parse(source);
+ /* const tree = stringifyTree(t.cursor(), source, 0);
+  if(tree == "Script\n")
+    throw new Error("No Input"); */
+  return traverseProgram(t.cursor(), source);
 }

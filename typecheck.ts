@@ -6,8 +6,8 @@ import { Expr, FunDef, Literal, Program , Type, VarInit, Stmt, TypedVar, UnaryOp
 // vars = variable name and type of variable
 // funs = function name , type of arguments, return type
 type TypeEnv = {
-    vars : Map<String, Type>,
-    funs : Map<String, [Type[], Type]>,
+    vars : Map<string, Type>,
+    funs : Map<string, [Type[], Type]>,
     retType : Type
 }
 
@@ -16,8 +16,10 @@ function duplicateEnv(env: TypeEnv) : TypeEnv {
 }
 
 
-export function typeCheckProgram(prog:Program<Type>, env: TypeEnv) : Program<Type>{
-
+export function typeCheckProgram(prog:Program<null>) : Program<Type>{
+    //create new env
+    const env : TypeEnv = {
+        vars: new Map(), funs: new Map(), retType: Type.none};
 
     // check inits
     const typedVarInit = typeCheckVarInit(prog.varinits, env);
@@ -46,7 +48,7 @@ export function typeCheckProgram(prog:Program<Type>, env: TypeEnv) : Program<Typ
 
 
 // Typed Checked variable initialization in Typing env
-export function typeCheckVarInit(inits: VarInit<Type>[], env: TypeEnv) : VarInit<Type>[]{
+export function typeCheckVarInit(inits: VarInit<null>[], env: TypeEnv) : VarInit<Type>[]{
     const typedInits : VarInit<Type>[] = [];
     inits.forEach((init) => {
         const typedInit = typeCheckLiteral(init.init)
@@ -59,13 +61,13 @@ export function typeCheckVarInit(inits: VarInit<Type>[], env: TypeEnv) : VarInit
 }
 
 
-export function typeCheckParams(params: TypedVar<Type>) : TypedVar<Type> {
+export function typeCheckParams(params: TypedVar<null>) : TypedVar<Type> {
  
         return{ ...params, a: params.type};
         
 }
 
-export function typeCheckFunDefs( fun :  FunDef<Type>, env: TypeEnv) : FunDef<Type> {
+export function typeCheckFunDefs( fun :  FunDef<null>, env: TypeEnv) : FunDef<Type> {
     const localEnv = duplicateEnv(env);
     // Check and add Function params to env
 
@@ -97,7 +99,7 @@ export function typeCheckFunDefs( fun :  FunDef<Type>, env: TypeEnv) : FunDef<Ty
     return {...fun, params : typedParams,  inits : typedInits, body: typedStmts };
 }
 
-export function typeCheckStmts(stmts : Stmt<Type>[], env: TypeEnv) : Stmt<Type>[] {
+export function typeCheckStmts(stmts : Stmt<null>[], env: TypeEnv) : Stmt<Type>[] {
 const typedStmts : Stmt<Type>[] = [];
 
     stmts.forEach(stmt => {
@@ -166,7 +168,7 @@ const typedStmts : Stmt<Type>[] = [];
 }
 
 
-export function typeCheckExpr(expr: Expr<Type>, env: TypeEnv) : Expr<Type> {
+export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
     switch(expr.tag){
         case "id":
             if(!env.vars.has(expr.name))
@@ -210,6 +212,7 @@ export function typeCheckExpr(expr: Expr<Type>, env: TypeEnv) : Expr<Type> {
                 case "-":
                 case "*":
                 case "//":
+                case "%":
                     if(left.a != Type.int && right.a != Type.int)
                         throw new Error("TYPE ERROR : Binary : Argument Not Int ")
                     return {...expr, a : Type.int}
@@ -252,7 +255,7 @@ export function typeCheckExpr(expr: Expr<Type>, env: TypeEnv) : Expr<Type> {
     }
 
 }
-export function typeCheckLiteral(literal : Literal<Type>) : Literal<Type> {
+export function typeCheckLiteral(literal : Literal<null>) : Literal<Type> {
     switch(literal.tag){
         case "num":
             return { ...literal, a : Type.int};

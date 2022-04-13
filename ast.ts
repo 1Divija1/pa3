@@ -12,9 +12,7 @@ export type Stmt<A> =
   | { a?: A, tag: "return", expr: Expr<A> }
   | { a?: A, tag: "pass" }
   | { a?: A, tag: "expr", expr: Expr<A> }
-  | { a?: A, tag: "if", expr: Expr<A>, body : Stmt<A>[], elseif: Elseif<A>, else: Else<A>}
-  | { a?: A, tag: "while", expr: Expr<A>, body : Stmt<A>[] }
-  | { a?: A, tag: "expr", expr: Expr<A> }
+
 
 export type Expr<A> =
     { a?: A, tag: "id", name: string }

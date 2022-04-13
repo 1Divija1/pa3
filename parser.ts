@@ -1,7 +1,25 @@
 import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
-import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal} from "./ast";
+import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal, UnaryOp} from "./ast";
 import { stringifyTree } from "./treeprinter";
+
+function isVarDecl(c: TreeCursor, s: string) : Boolean {
+
+  if(c.type.name !== "AssignStatement")
+    return false;
+  c.firstChild();
+  c.nextSibling();
+  if(c.type.name !== "TypeDef")
+    return false;
+  c.parent();
+  return true;
+}
+
+function isFunDef(c: TreeCursor, s: string) : Boolean { 
+  if(c.type.name !== "FunctionDefination")
+    return false;
+  return true;
+}
 
 function traverseVarInit(c : TreeCursor, s : string) : VarInit<null> {
   c.firstChild // go to name
@@ -10,7 +28,7 @@ function traverseVarInit(c : TreeCursor, s : string) : VarInit<null> {
   c.nextSibling(); //literal
   const literal = traverseLiteral(c,s);
   c.parent()
-  return { name: typedVar.name, type : typedVar.type , init : literal}
+  return { name: typedVar.name, type : typedVar , init : literal}
 
 }
 
@@ -90,7 +108,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
         tag: "literal",
         literal : traverseLiteral(c, s)
       }
-      
+
     case "VariableName":
       return {
         tag: "id",
@@ -111,8 +129,6 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
           name: callName,
           arg: args[0]
         };
-  
-
       } else if(args.length == 2) {
         //buildin2 logic
         if( callName!== "max" && callName!== "min" && callName!=="pow")
@@ -126,21 +142,30 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
         };
 
       }
+      c.parent();
+      return {
+        tag : "call",
+        name : callName,
+        args : args
+      }
     
-      throw new Error("PARSE ERROR: There are more than 2 arguments")
-
       case "UnaryExpression":
-        c.firstChild(); // go to unary expression
-        var uniOp = (s.substring(c.from, c.to))
-        if(uniOp !== "-" && uniOp!== "+"){
-          throw new Error("PARSE ERROR : unsupported unary ")
-        }
+        c.firstChild();
+        const argUnary = traverseExpr(c, s);
         c.nextSibling();
-        var num = Number(uniOp + s.substring(c.from, c.to))
-        if(isNaN(num))
-          throw new Error("PARSE ERROR: Unary operation failed !!")
-        c.parent(); // pop unaryexpression
-        return {tag: "num", value: num};
+        var op1 : UnaryOp;
+        switch(s.substring(c.from, c.to)) {
+          case "-":
+            op1 = UnaryOp.Minus
+            break;
+          case "not":
+            op1 = UnaryOp.Not;
+            break;
+          default:
+            throw new Error("PARSE ERROR : Incorrect Operator")
+        }
+        c.parent(); //pop Binarty Expression
+        return {tag: "unaryexp", op : op1, left : argUnary};
 
       case "BinaryExpression":
         c.firstChild();
@@ -157,14 +182,34 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
           case "*":
             op = BinaryOp.Mul;
             break;
+          case "//":
+            op = BinaryOp.Div;
+            break;
+          case "<":
+            op = BinaryOp.Less;
+            break;
+          case "<=":
+              op = BinaryOp.LessEqual;
+              break;
+          case ">":
+            op = BinaryOp.Greater;
+            break;
+          case ">=":
+            op = BinaryOp.GreaterEqual;
+            break;
+          case "==":
+              op = BinaryOp.Equal;
+              break;
+          case "!=":
+            op = BinaryOp.NotEqual;
+            break;
           default:
             throw new Error("PARSE ERROR : Incorrect Operator")
         }
         c.nextSibling();
         const right = traverseExpr(c, s);
         c.parent(); //pop Binarty Expression
-        return {tag: "binaryexp", op, left, right};
-
+        return {tag: "binaryexp", op, left, right};   
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
@@ -180,7 +225,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
       const value = traverseExpr(c, s);
       c.parent();
       return {
-        tag: "define",
+        tag: "assign",
         name: name,
         value: value
       }

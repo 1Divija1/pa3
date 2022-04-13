@@ -1,4 +1,4 @@
-import { Expr, FunDef, Literal, Program , Type, VarInit, Stmt, TypedVar}  from './ast';
+import { Expr, FunDef, Literal, Program , Type, VarInit, Stmt, TypedVar, UnaryOp, BinaryOp}  from './ast';
 
 //This Map stores the variable and Type when we declare a variable
 // we use this to check if the var exists in this or when we are making
@@ -32,7 +32,7 @@ export function typeCheckProgram(prog:Program<Type>, env: TypeEnv) : Program<Typ
     prog.fundefs.forEach(funs => {
         const funDef = typeCheckFunDefs(funs, env);
         env.funs.set(funs.name , [funs.params.map(param => param.type), funs.ret]);
-        funDefs.push(...funDef);
+        funDefs.push(funDef);
     })
 
     // check statements
@@ -65,7 +65,7 @@ export function typeCheckParams(params: TypedVar<Type>) : TypedVar<Type> {
         
 }
 
-export function typeCheckFunDefs( fun :  FunDef<Type>, env: TypeEnv) : FunDef<Type>[] {
+export function typeCheckFunDefs( fun :  FunDef<Type>, env: TypeEnv) : FunDef<Type> {
     const localEnv = duplicateEnv(env);
     // Check and add Function params to env
 
@@ -94,10 +94,10 @@ export function typeCheckFunDefs( fun :  FunDef<Type>, env: TypeEnv) : FunDef<Ty
     // make sure every path has the expected return type
     const typedStmts = typeCheckStmts(fun.body, localEnv)
 
-    return {...fun, params : typedParams,  inits : typedInits, body: typeCheckStmts };
+    return {...fun, params : typedParams,  inits : typedInits, body: typedStmts };
 }
 
-export function typeCheckStmts(stmts : Stmt<null>[], env: TypeEnv) : Stmt<Type>[] {
+export function typeCheckStmts(stmts : Stmt<Type>[], env: TypeEnv) : Stmt<Type>[] {
 const typedStmts : Stmt<Type>[] = [];
 
     stmts.forEach(stmt => {
@@ -188,15 +188,48 @@ export function typeCheckExpr(expr: Expr<Type>, env: TypeEnv) : Expr<Type> {
              if(arg2.a !== Type.int)
                  throw new Error("TYPE ERROR: arg2 must be int");
             return{ ...expr, arg1 : arg1, arg2 : arg2, a: Type.int};
-        
+        case "unaryexp":
+            const argUni = typeCheckExpr(expr.left, env);
+            switch(expr.op){
+                case "not": 
+                    if(argUni.a !== Type.bool)
+                        throw new Error("TYPE ERROR : Unary : Argument Not Bool ")
+                    return { ...expr , a : Type.bool}
+                case "-":
+                    if(argUni.a != Type.int)
+                        throw new Error("TYPE ERROR : Unary : Argument Not Int ")
+                    return { ...expr , a : Type.int}
+                default:
+                    throw new Error("TYPE ERROR : Unary not supported")
+            }
         case "binaryexp":
             const left = typeCheckExpr(expr.left, env);
             const right = typeCheckExpr(expr.right, env);
-            if(left.a !== Type.int)
-                throw new Error("TYPE ERROR: Left must be int");
-            if(right.a !== Type.int)
-                throw new Error("TYPE ERROR: Right must be int");
-            return{ ...expr, left : left, right : right, a: Type.int}
+            switch(expr.op){
+                case "+":
+                case "-":
+                case "*":
+                case "//":
+                    if(left.a != Type.int && right.a != Type.int)
+                        throw new Error("TYPE ERROR : Binary : Argument Not Int ")
+                    return {...expr, a : Type.int}
+                case "<":
+                case ">":
+                case "<=":
+                case ">=":
+                    if(left.a != Type.int && right.a != Type.int)
+                        throw new Error("TYPE ERROR : Binary : Argument Not Int ")
+                return {...expr, a : Type.bool}
+                case "==":
+                case "!=":
+                    if((left.a != Type.int && right.a != Type.int) || (left.a != Type.bool && right.a != Type.bool) )
+                        throw new Error("TYPE ERROR : Binary : Argument Not Right ")
+                    return {...expr, a : Type.bool}
+                    
+                default:
+                    throw new Error("TYPE ERROR : Binary not supported")
+            }
+
         
         case "call":
            // Checking function name 
@@ -219,8 +252,6 @@ export function typeCheckExpr(expr: Expr<Type>, env: TypeEnv) : Expr<Type> {
     }
 
 }
-
-
 export function typeCheckLiteral(literal : Literal<Type>) : Literal<Type> {
     switch(literal.tag){
         case "num":

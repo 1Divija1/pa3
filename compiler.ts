@@ -36,12 +36,16 @@ export function compile(source: string) : CompileResult {
 
 function codeGen(stmt: Stmt) : Array<string> {
   switch(stmt.tag) {
-    case "define":
+    case "assign":
       var valStmts = codeGenExpr(stmt.value);
       return valStmts.concat([`(local.set $${stmt.name})`]);
     case "expr":
       var exprStmts = codeGenExpr(stmt.expr);
       return exprStmts.concat([`(local.set $$last)`]);
+    case "pass":
+      break;
+    case "return":
+      break;
   }
 }
 
@@ -63,7 +67,14 @@ function codeGenExpr(expr : Expr) : Array<string> {
       const rightStatements = codeGenExpr(expr.right);
       const operatorStatements = codeGenBinOp(expr.op);
       return [...leftStatements, ...rightStatements, operatorStatements]
+    case "unaryexp":
+      break;
+    case "call":
+      break;
+    case "literal":
+      break;
   }
+
 }
 
 function codeGenBinOp(op : BinaryOp) : string {

@@ -107,7 +107,7 @@ const typedStmts : Stmt<Type>[] = [];
         case "assign":
             // a = 0
             // this check is a is present in the env
-            if( !env.vars.get(stmt.name))
+            if( !env.vars.has(stmt.name))
                 throw new Error("TYPE ERROR :  unbound id")
             //    
             const typedValue = typeCheckExpr(stmt.value , env);

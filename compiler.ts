@@ -172,7 +172,6 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv) : Array<string> {
     case "call":
       const valStmts = expr.args.map(e => codeGenExpr(e, locals)).flat();
       let toCall = expr.name;
-      console.log("printing", expr.name)
       if(expr.name === "print") {
         switch(expr.args[0].a) {
           case Type.bool: toCall = "print_bool"; break;

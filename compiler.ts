@@ -93,14 +93,15 @@ export function codeGenFunction(func: FunDef<Type>, locals :LocalEnv) : Array<st
     ${stmtsBody})`];
 }
 
+
 export function codeGenLiteral(literal : Literal<Type>, locals : LocalEnv) {
   switch(literal.tag){
     case "num" : return [`(i32.const ${literal.value})`];
     case "bool": 
-    if(literal.value) 
-      return [`(i32.const 1)`];
-    else 
-      return [`(i32.const 0)`]; 
+      if(literal.value) 
+        return [`(i32.const 1)`];
+      else 
+        return [`(i32.const 0)`]; 
     case "none":
       return [`(i32.const 0)`]; 
   }
@@ -171,6 +172,7 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv) : Array<string> {
     case "call":
       const valStmts = expr.args.map(e => codeGenExpr(e, locals)).flat();
       let toCall = expr.name;
+      console.log("printing", expr.name)
       if(expr.name === "print") {
         switch(expr.args[0].a) {
           case Type.bool: toCall = "print_bool"; break;

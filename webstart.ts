@@ -25,7 +25,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       print_none: (arg: any) => {
         display("None");
         return arg;
-      }
+      },
+      abs : Math.abs,
+      min : Math.min,
+      max : Math.max,
+      pow : Math.pow,
     },
   };
   const runButton = document.getElementById("run");

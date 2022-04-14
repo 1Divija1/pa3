@@ -24,18 +24,18 @@ function isFunDef(c: TreeCursor, s: string) : Boolean {
 }
 
 function traverseVarInit(c : TreeCursor, s : string) : VarInit<null> {
-  c.firstChild // go to name
+  c.firstChild(); // go to name
   const typedVar = traverseTypedVar(c , s);
   c.nextSibling(); // =
   c.nextSibling(); //literal
   const literal = traverseLiteral(c,s);
-  c.parent()
+  c.parent();
   return { name: typedVar.name, type : typedVar , init : literal}
 
 }
 
 export function traverseLiteral(c: TreeCursor, s: string): Literal<null> {
-  switch (s.substring(c.from, c.to)) {
+  switch (c.type.name) {
     case "Number":
       return {
         tag: "num",
@@ -51,7 +51,7 @@ export function traverseLiteral(c: TreeCursor, s: string): Literal<null> {
         tag: "none"
       }
     default:
-      throw new Error("TYPE ERROR : Literal not present");
+      throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
 }
 
@@ -91,7 +91,7 @@ export function traverseArgs(c : TreeCursor, s : string) : Array<Expr<null>> {
 }
 
 export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
-  switch(c.type.name) {
+  switch(c.node.type.name) {
     case "Number":
       return {
         tag: "literal",
@@ -129,9 +129,8 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
           name: callName,
           arg: arg1
         };
-
       }
-      else if(callName == "pow" || callName == "max" || callName!== "min" ){
+      else if(callName == "pow" || callName == "max" || callName == "min" ){
         c.nextSibling(); // arglist
         c.firstChild(); // (
         c.nextSibling();
@@ -172,10 +171,8 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
     
       case "UnaryExpression":
         c.firstChild(); // arg
-        const argUnary = traverseExpr(c, s);
-        c.nextSibling(); // op
         var op1 : UnaryOp;
-        switch(s.substring(c.from, c.to)) {
+        switch(op1) {
           case "-":
             op1 = UnaryOp.Minus
             break;
@@ -185,6 +182,8 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
           default:
             throw new Error("PARSE ERROR : Incorrect Operator")
         }
+        c.nextSibling();
+        const argUnary = traverseExpr(c, s);        
         c.parent(); //pop Binarty Expression
         return {tag: "unaryexp", op : op1, left : argUnary};
 
@@ -352,12 +351,12 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
         else{
           break;
         }
-          if(c.nextSibling){
-            continue;
-          }
-          else {
-            return {varinits : inits , fundefs : funDefs , stmts : body};
-          }
+        if(c.nextSibling()){
+          continue;
+        }
+        else {
+          return {varinits : inits , fundefs : funDefs , stmts : body};
+        }
         }
       while(true)
 
@@ -365,7 +364,10 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
         if(isVarDecl(c,s) || isFunDef(c,s)){
           throw new Error("PARSE ERROR : variables and functions declaration should be first");
         }
-        body.push(traverseStmt(c,s));
+        else {
+          body.push(traverseStmt(c,s));
+        }
+        traverseStmt(c, s);
        
       } while(c.nextSibling())
       return {varinits : inits , fundefs : funDefs , stmts : body};
@@ -380,8 +382,10 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
 export function parse(source : string) : Program<null>{
 
   const t = parser.parse(source);
- /* const tree = stringifyTree(t.cursor(), source, 0);
+  const tree = stringifyTree(t.cursor(), source, 0);
   if(tree == "Script\n")
-    throw new Error("No Input"); */
+    throw new Error("No Input");
+  console.log(tree);
   return traverseProgram(t.cursor(), source);
 }
+ 

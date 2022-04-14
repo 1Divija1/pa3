@@ -50,13 +50,13 @@ export function typeCheckProgram(prog:Program<null>) : Program<Type>{
 // Typed Checked variable initialization in Typing env
 export function typeCheckVarInit(inits: VarInit<null>[], env: TypeEnv) : VarInit<Type>[]{
     const typedInits : VarInit<Type>[] = [];
-    inits.forEach((init) => {
+    inits.forEach(init => {
         const typedInit = typeCheckLiteral(init.init)
-        if (typedInit.a !== init.type.a)
+        if (typedInit.a !== init.type.type)
             throw new Error("TYPED ERROR: Init Type does not match literal Type")
         env.vars.set(init.name, init.type.a);
-        typedInits.push({...init , a : init.type.a, init: typedInit});
-    })
+        typedInits.push({...init , a : init.type.type, init: typedInit});
+    });
     return typedInits;
 }
 

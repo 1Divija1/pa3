@@ -24,7 +24,7 @@ export function typeCheckProgram(prog:Program<null>) : Program<Type>{
     // check inits
     const typedVarInit = typeCheckVarInit(prog.varinits, env);
     prog.varinits.forEach(init => {
-        env.vars.set(init.name, init.type.type);
+        env.vars.set(init.name, init.type);
 
     })
 
@@ -52,10 +52,10 @@ export function typeCheckVarInit(inits: VarInit<null>[], env: TypeEnv) : VarInit
     const typedInits : VarInit<Type>[] = [];
     inits.forEach(init => {
         const typedInit = typeCheckLiteral(init.init)
-        if (typedInit.a !== init.type.type)
+        if (typedInit.a !== init.type)
             throw new Error("TYPED ERROR: Init Type does not match literal Type")
-        env.vars.set(init.name, init.type.a);
-        typedInits.push({...init , a : init.type.type, init: typedInit});
+        env.vars.set(init.name, init.type);
+        typedInits.push({...init , a : init.type, init: typedInit});
     });
     return typedInits;
 }
@@ -84,7 +84,7 @@ export function typeCheckFunDefs( fun :  FunDef<null>, env: TypeEnv) : FunDef<Ty
 
     const typedInits = typeCheckVarInit(fun.inits, env)
     fun.inits.forEach(init => {
-        localEnv.vars.set(init.name, init.type.type)
+        localEnv.vars.set(init.name, init.type)
 
     })
     // add function type to env
@@ -178,8 +178,6 @@ export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
         
         case "builtin1":
             const arg = typeCheckExpr(expr.arg, env);
-            if(arg.a !== Type.int)
-                throw new Error("TYPE ERROR: arg1 must be int")
             return{ ...expr, arg : arg, a: Type.int}
            
         case "builtin2":

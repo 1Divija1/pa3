@@ -25,7 +25,8 @@ export function compile(source: string) : string {
   let ast = typeCheckProgram(parse(source));
   const emptyEnv = new Map<string, boolean>();
   // check for variables 
-  const varDecls = codeGenVarDefs(ast.varinits);
+  const varDecls = ast.varinits.map(v => `(global $${v.name} (mut i32) (i32.const 0))`).join("\n");
+  const varInits : string[] = codeGenVarDefs(ast.varinits, emptyEnv);
   
   //function 
   const funcdef : string[] = [];
@@ -35,7 +36,7 @@ export function compile(source: string) : string {
   funcdef.join("\n\n");
   //  statements
   const allStmts = ast.stmts.map(s => codeGenStmt(s, emptyEnv)).flat();
-  const main = [`(local $scratch i32)`, ...allStmts].join("\n");
+  const main = [`(local $scratch i32)`,...varInits, ...allStmts].join("\n");
 
   var retType = "";
   var retVal = "";
@@ -69,8 +70,16 @@ export function compile(source: string) : string {
     ) 
   `;
 }
-function codeGenVarDefs(varDefs : VarInit<Type>[]) : string {
-  return varDefs.map(v => `(global $${v.name} (mut i32) (i32.const 0))`).join("\n");
+function codeGenVarDefs(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
+
+  var compiledDefs:string[] = []; 
+  varInit.forEach(v => {
+    compiledDefs = [...compiledDefs,...codeGenLiteral(v.init, env)];
+    if(env.has(v.name)) { compiledDefs.push(`(local.set $${v.name})`); }
+    else { compiledDefs.push(`(global.set $${v.name})`); }  
+
+  });
+  return compiledDefs;
 }
 
 export function codeGenFunction(func: FunDef<Type>, locals :LocalEnv) : Array<string> {
@@ -158,7 +167,16 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv) : Array<string> {
       else { return [`(global.get $${expr.name})`]; }
     case "builtin1":
         const argStmts = codeGenExpr(expr.arg , locals);
-        return argStmts.concat([`(call $${expr.name})`]);
+        let toCall1 = expr.name;
+        if(expr.name === "print") {
+        switch(expr.arg.a) {
+          case Type.bool: toCall1 = "print_bool"; break;
+          case Type.int: toCall1 = "print_num"; break;
+          case Type.none: toCall1 = "print_none"; break;
+        }
+      }
+      argStmts.push(`(call $${toCall1})`);
+      return argStmts;
     case "builtin2":
         const argStmts1 = codeGenExpr(expr.arg1 , locals);
         const argStmts2 = codeGenExpr(expr.arg2, locals);

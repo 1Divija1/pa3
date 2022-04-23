@@ -18,19 +18,19 @@ function isVarDecl(c: TreeCursor, s: string) : Boolean {
 }
 
 function isFunDef(c: TreeCursor, s: string) : Boolean { 
-  if(c.type.name !== "FunctionDefination")
+  if(c.type.name !== "FunctionDefinition")
     return false;
   return true;
 }
 
 function traverseVarInit(c : TreeCursor, s : string) : VarInit<null> {
   c.firstChild(); // go to name
-  const typedVar = traverseTypedVar(c , s);
+  const {name, type} = traverseTypedVar(c , s);
   c.nextSibling(); // =
   c.nextSibling(); //literal
   const literal = traverseLiteral(c,s);
   c.parent();
-  return { name: typedVar.name, type : typedVar , init : literal}
+  return { name, type , init : literal}
 
 }
 
@@ -40,16 +40,16 @@ export function traverseLiteral(c: TreeCursor, s: string): Literal<null> {
       return {
         tag: "num",
         value: Number(s.substring(c.from, c.to))
-      }
+      };
     case "Boolean":
       return {
         tag: "bool",
-        value: Boolean(s.substring(c.from, c.to))
-        }
+        value: (eval(s.substring(c.from, c.to).toLowerCase()))
+        };
     case "None":
       return {
         tag: "none"
-      }
+      };
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
@@ -60,7 +60,7 @@ function traverseTypedVar(c : TreeCursor, s : string) : TypedVar<null> {
   c.nextSibling();  // a - TypeDef
   c.firstChild(); // :
   c.nextSibling(); //int / bool
-  const type = traverseType(c,s)
+  const type = traverseType(c,s);
   c.parent(); // pop TypeDef
   return { name : varDec , type : type}
 
@@ -73,7 +73,7 @@ export function traverseType(c: TreeCursor, s: string): Type {
     case "bool":
       return Type.bool;
     case "None":
-      return Type.none
+      return Type.none;
     default:
       throw new Error("TYPE ERROR : Incorrect Type");
   }
@@ -155,11 +155,11 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
         c.firstChild(); // (
         c.nextSibling();
         const argum: Expr<null>[] = [];
-        while (c.node.name != ")") {
-          c.nextSibling(); // skipping , by mistake (
-            argum.push(traverseExpr(c, s));          
+        do {
+          if (c.type.name === ")") break;   // function has no parameters
+          argum.push(traverseExpr(c, s));
           c.nextSibling();
-          }
+        } while(c.nextSibling())
         c.parent(); // pop arglist
         c.parent(); //pop call expression
         return {
@@ -233,7 +233,7 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
         const right = traverseExpr(c, s);
         c.parent(); //pop Binary Expression
         return {tag: "binaryexp", op, left, right}; 
-      case "ParanthesizedExpression":
+      case "ParenthesizedExpression":
         c.firstChild();
         c.nextSibling();
         const expr = traverseExpr(c,s);
@@ -281,14 +281,14 @@ export function traverseFunDef(c : TreeCursor, s : string) : FunDef<null>{
   c.nextSibling(); //function name
   const functionName = s.substring(c.from, c.to);
   c.nextSibling(); // ParamList
-  c.nextSibling(); // (
+  c.firstChild(); // (
+  c.nextSibling(); // param
   const paramList :TypedVar<null>[] = [];
-  while (c.node.name != ")") {
-    c.nextSibling(); // skipping , by mistake (
-    if(c.type.name === ')')break; 
-    paramList.push(traverseTypedVar(c, s));          
+  do {
+    if (c.type.name === ")") break;   // function has no parameters
+    paramList.push(traverseTypedVar(c, s));
     c.nextSibling();
-    }
+  } while(c.nextSibling())
   c.parent();
   c.nextSibling(); // TypeDef for return
   var ret = Type.none ;
@@ -296,10 +296,14 @@ export function traverseFunDef(c : TreeCursor, s : string) : FunDef<null>{
     c.firstChild(); // ->
     c.nextSibling(); // return type
     ret = traverseType(c,s);
+    c.nextSibling();
     c.parent(); // goes to parent
   }
   c.nextSibling(); //Body
   c.firstChild(); //:
+  if (s.substring(c.from, c.to) != ':') {
+    throw new Error("ParseError: missing colon");
+  }
   c.nextSibling(); // goes to first statement
   // we will have variable dec and statements in body
   const inits : VarInit<null>[] = [];

@@ -262,7 +262,8 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
       c.firstChild();
       const expr = traverseExpr(c, s);
       c.parent(); // pop going into stmt
-      return { tag: "expr", expr: expr }
+      return { tag: "expr", expr: expr };
+    case "⚠":
     case "PassStatement":
       { tag : "pass"}
     case "ReturnStatement":
@@ -271,6 +272,68 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
       const value1 = traverseExpr(c, s);
       c.parent();
       return { tag: "return", expr : value1 };
+    case "IfStatement":
+      c.firstChild();// go to if
+      c.nextSibling();// go to (
+      var cond_if: Expr<null> = traverseExpr(c, s);
+      console.log(cond_if);
+      c.nextSibling(); // go to body
+      c.firstChild(); // go to :
+      var if_body: Stmt<null>[] = [];
+      while(c.nextSibling()) {
+        if_body.push(traverseStmt(c,s));
+      }
+      c.parent();
+      console.log(s.substring(c.from, c.to));
+      c.nextSibling(); // go to elseif
+      console.log(s.substring(c.from, c.to));
+      if(s.substring(c.from, c.to) == "elif") {
+        console.log(s.substring(c.from, c.to));
+        c.nextSibling();// go to (
+        var cond_elseif: Expr<null> = traverseExpr(c, s);
+        c.nextSibling(); // go to body
+        c.firstChild(); // go to :
+        var elseif_body: Stmt<null>[] = [];
+        while(c.nextSibling()) {
+          elseif_body.push(traverseStmt(c,s));
+        }
+        c.parent();
+        c.nextSibling(); // go to else
+      }
+      if(s.substring(c.from, c.to) === "else") {
+        console.log(s.substring(c.from, c.to));
+          c.nextSibling(); // go to body
+          c.firstChild(); // go to :
+          var else_body: Stmt<null>[] = [];
+          while(c.nextSibling()) {
+            else_body.push(traverseStmt(c,s));
+          }
+        //  c.parent();
+
+      }
+      console.log("hi", s.substring(c.from, c.to));
+      c.parent();
+      console.log("hey", s.substring(c.from, c.to));
+      c.parent();
+      return { tag: "ifelse", ifcond: cond_if, ifbody: if_body, elif: cond_elseif, elifbody: elseif_body, elsebody: else_body };
+
+    case "WhileStatement":
+      const body: Stmt<null>[] = [];
+      c.firstChild();   // while
+      c.nextSibling();  // condition
+      const cond = traverseExpr(c,s);
+      c.nextSibling(); //body
+      c.firstChild(); // :
+      if (s.substring(c.from, c.to) != ':') {
+        throw new Error("ParseError: missing colon");
+      }
+      c.nextSibling();  // first statement
+      do {
+        body.push(traverseStmt(c, s));
+      } while(c.nextSibling())
+      c.parent();
+      c.parent();
+      return { tag: "while", cond, body};
     default:
       throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
   }
@@ -290,7 +353,9 @@ export function traverseFunDef(c : TreeCursor, s : string) : FunDef<null>{
     c.nextSibling();
   } while(c.nextSibling())
   c.parent();
+  console.log("fun1", s.substring(c.from, c.to))
   c.nextSibling(); // TypeDef for return
+  console.log("fun2", s.substring(c.from, c.to))
   var ret = Type.none ;
   if(c.type.name === "TypeDef") {
     c.firstChild(); // ->
@@ -348,9 +413,12 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
       do{
         if(isVarDecl(c,s)){
           inits.push(traverseVarInit(c,s));
+          console.log(inits)
         }
         else if(isFunDef(c,s)){
           funDefs.push(traverseFunDef(c,s));
+          console.log(funDefs)
+
         }
         else{
           break;
@@ -374,6 +442,10 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
         traverseStmt(c, s);
        
       } while(c.nextSibling())
+      console.log("inits",inits)
+      console.log("fun",funDefs)
+      console.log("body",body)
+
       return {varinits : inits , fundefs : funDefs , stmts : body};
     default:
       throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);

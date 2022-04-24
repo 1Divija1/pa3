@@ -6,6 +6,7 @@ import { typeCheckProgram } from "./typecheck";
 // https://learnxinyminutes.com/docs/wasm/
 
 type LocalEnv = Map<string, boolean>;
+var loop = 0;
 
 type CompileResult = {
   wasmSource: string,
@@ -74,9 +75,17 @@ function codeGenVarDefs(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
 
   var compiledDefs:string[] = []; 
   varInit.forEach(v => {
-    compiledDefs = [...compiledDefs,...codeGenLiteral(v.init, env)];
-    if(env.has(v.name)) { compiledDefs.push(`(local.set $${v.name})`); }
-    else { compiledDefs.push(`(global.set $${v.name})`); }  
+    if(env.has(v.name)) {
+       console.log(v.name)
+       compiledDefs.push(`(local $${v.name} i32)`);
+
+       compiledDefs = [...compiledDefs,...codeGenLiteral(v.init, env)];
+
+       compiledDefs.push(`(local.set $${v.name})`); 
+      }
+    else { 
+      compiledDefs = [...compiledDefs,...codeGenLiteral(v.init, env)];
+      compiledDefs.push(`(global.set $${v.name})`); }  
 
   });
   return compiledDefs;
@@ -84,15 +93,11 @@ function codeGenVarDefs(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
 
 export function codeGenFunction(func: FunDef<Type>, locals :LocalEnv) : Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
-
-  // Construct the environment for the function body
-  const variables = func.inits;
-  variables.forEach(v => withParamsAndVariables.set(v.name, true));
   func.params.forEach(p => withParamsAndVariables.set(p.name, true));
-
-  // Construct the code for params and variable declarations in the body
   const params = func.params.map(p => `(param $${p.name} i32)`).join(" ");
-  const varDecls = func.body.map(v => `(local $${v.a} i32)`).join("\n");
+
+  func.inits.forEach(v => withParamsAndVariables.set(v.name, true));
+  const varDecls = codeGenVarDefs(func.inits, withParamsAndVariables).join("\n");
 
   const stmts = func.body.map(s => codeGenStmt(s, withParamsAndVariables)).map(f => f.join("\n"));
   const stmtsBody = stmts.join("\n");
@@ -154,6 +159,44 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv) : Array<string> {
       var result = codeGenExpr(stmt.expr, locals);
       result.push("(local.set $scratch)");
       return result;
+    case "ifelse": {
+      var result : string[] = [];
+      console.log("result", result);
+      let ifcond = codeGenExpr(stmt.ifcond, locals)
+      var ifbody = stmt.ifbody.map(s => codeGenStmt(s, locals)).flat();
+      console.log("comp cond" , ifcond);
+      console.log("comp ifbody" , ifbody);
+      result.push(...ifcond, `(if`, `(then`, ...ifbody, `)`);
+      if(stmt.elif != null) {
+      var elifcond = codeGenExpr(stmt.elif, locals)
+      var elifbody = stmt.elifbody.map(s => codeGenStmt(s, locals)).flat();
+      if (elifcond.length > 0) {
+        result.push(`(else`, ...elifcond, `(if`, `(then`, ...elifbody, `)`);
+        }
+      }
+      
+      var elsebody = stmt.elsebody.map(s => codeGenStmt(s, locals)).flat();
+      if (elsebody.length > 0) {
+        result.push(`(else`, ...elsebody, `)`);
+      }
+      return result;
+    }
+    case "while":{
+      var condLabel = loop;
+      loop += 1;
+      var bodyLabel = loop;
+      loop += 1;
+    var condExpr = codeGenExpr(stmt.cond, locals);
+
+    var bodyStmts = stmt.body.map(s => codeGenStmt(s, locals)).flat();
+    return [`(block $label_${bodyLabel}`,
+            `(loop $label_${condLabel}`,
+            ...condExpr,
+            `i32.eqz`,
+            `br_if $label_${bodyLabel}`,
+            ...bodyStmts,
+            `br $label_${condLabel}`,`)`,`)`];
+}
 
   }
 

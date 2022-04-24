@@ -123,36 +123,50 @@ const typedStmts : Stmt<Type>[] = [];
             typedStmts.push({...stmt });
 
             break;
-        /*
-        case "if":
-            const typedCond = typeCheckExpr(stmt.expr, env)
-            const typedCondIfEl = typeCheckExpr(stmt.elseif, env)
-            const typedCondElse = typeCheckExpr(stmt.else, env) 
-            if (typedCond.a != Type.bool)
-                throw new Error("PARSE ERROR : Incorrect Condition")
-            
-                
-            stmt.body.forEach(statements => {
-                typeCheckStmts(statements, env);
-            });
-            if (typedCondIfEl != null) {
-                if(typedCondIfEl != Type.bool)
-                    throw new Error("PARSE ERROR : The condition needs to be of the type boolean")
-            stmt.body.forEach(statements => {
-                    typeCheckStmts(statements, env);
-                });
-            
-            }
-            if (typedCondElse != null) {
-                if(typedCondElse != Type.bool)
-                    throw new Error("PARSE ERROR : The condition needs to be of the type boolean")
-            stmt.body.forEach(statements => {
-                    typeCheckStmts(statements, env);
-                });
         
+        case "ifelse": {
+            const ifcond = typeCheckExpr(stmt.ifcond, env);
+            if(ifcond.a != Type.bool) {
+                throw new TypeError("Expect type BOOL in condition")
             }
-            typedStmts.push({...stmt, a:Type.none});
-        */
+            const ifBody = typeCheckStmts(stmt.ifbody, env);
+
+            var elifcond
+            var elifBody
+
+            if(stmt.elif != null) {
+                elifcond = typeCheckExpr(stmt.elif, env);
+                if(elifcond.a != Type.bool) {
+                    throw new TypeError("Expect type BOOL in condition")
+                }
+                if (stmt.elifbody ) elifBody = typeCheckStmts(stmt.elifbody, env);
+
+            }
+            
+            
+            const elseBody = typeCheckStmts(stmt.elsebody, env);
+            console.log("ifcond", ifcond)
+            console.log("ifbody", ifBody)
+            console.log("elifcond", elifcond)
+            console.log("elifbody", elifBody)
+            console.log("elsebody", elseBody)
+
+
+            typedStmts.push({...stmt, ifcond : ifcond, ifbody: ifBody,elif: elifcond, elifbody: elifBody, elsebody: elseBody});
+        }
+        break;
+       case "while": {
+            const ifcond = typeCheckExpr(stmt.cond, env);
+            if(ifcond.a != Type.bool) {
+                throw new TypeError("Expect type BOOL in condition")
+            }
+
+            const newBody = typeCheckStmts(stmt.body,env);
+
+            typedStmts.push({ ...stmt, cond: ifcond, body: newBody});
+
+        }
+        break;
         case "pass":
             typedStmts.push({...stmt, a:Type.none});
             break;
@@ -237,8 +251,8 @@ export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
            if(!(env.funs.has(expr.name)))
                 throw new Error("TYPE ERROR : Incorrect Function name");
             // Checking number of arguments
-            const argumentcount = env.funs.get(expr.name);
-            if(argumentcount.length != expr.args.length)
+            const [args, type] = env.funs.get(expr.name);
+            if(args.length !== expr.args.length)
                 throw new Error("TYPE ERROR : Number of arguments incorrect ");
 
             

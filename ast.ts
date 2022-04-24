@@ -12,6 +12,8 @@ export type Stmt<A> =
   | { a?: A, tag: "return", expr: Expr<A> }
   | { a?: A, tag: "pass" }
   | { a?: A, tag: "expr", expr: Expr<A> }
+  | { a?: A, tag: "ifelse", ifcond: Expr<A>, ifbody: Stmt<A>[],elif: Expr<A>, elifbody: Stmt<A>[], elsebody: Stmt<A>[] }
+  | { a?: A, tag: "while", cond: Expr<A>, body: Stmt<A>[] }
 
 
 export type Expr<A> =
@@ -33,11 +35,3 @@ export enum UnaryOp { Not = "not", Minus = "-" };
 export enum BinaryOp { Plus = "+", Minus = "-", Mul = "*", Div = "//" , Mod = "%", Equal = "==" , NotEqual = "!=", LessEqual = "<=", GreaterEqual = ">=" , Less = "<", Greater = ">"}
 
 export enum Type {int, bool, none}
-
-export type Elseif<A> = 
-    { a?: A, tag: "elseif", expr : Expr<A>, body : Stmt<A>[] }
-  | { a?: A, tag : "none" }
-      
-export type Else<A> = 
-    { a?: A, tag: "else", expr : Expr<A>, body : Stmt<A>[] }
-  | { a?: A, tag : "none" }

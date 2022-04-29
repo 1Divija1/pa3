@@ -1,12 +1,12 @@
-export type Program<A> = { a?: A, varinits : VarInit<A>[], stmts : Stmt<A>[], classes: ClassDef<A>[]}
+export type Program<A> = { a?: A, varinits : VarInit<A>[], stmts : Stmt<A>[], classdef: ClassDef<A>[]}
 
 export type VarInit<A> = { a?: A, name : string, type: Type , init : Literal<A> }
 
-export type FunDef<A> = { a?: A, name: string, params : TypedVar<A>[], ret : Type, inits : VarInit<A>[], body : Stmt<A>[] }
+export type MethodDef<A> = { a?: A, name: string, params : TypedVar<A>[], ret : Type, inits : VarInit<A>[], body : Stmt<A>[] }
 
 export type TypedVar<A> = { a?: A, name: string, type: Type }
 
-export type ClassDef<A> = { a?: A, name: string, varinits: VarInit<A>[], methodDefs: FunDef<A>[], super: Type}
+export type ClassDef<A> = { a?: A, name: string, varinits: VarInit<A>[], methodDefs: MethodDef<A>[], super: Type}
 
 
 export type Stmt<A> =

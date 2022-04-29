@@ -2,7 +2,7 @@ import {parser} from "lezer-python";
 import {TreeCursor} from "lezer-tree";
 import { type } from "os";
 import { sources } from "webpack";
-import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal, UnaryOp, FunDef, Program, ClassDef} from "./ast";
+import {BinaryOp, Expr, Stmt, VarInit, Type, TypedVar, Literal, UnaryOp, MethodDef, Program, ClassDef} from "./ast";
 import { stringifyTree } from "./treeprinter";
 
 function isVarDecl(c: TreeCursor, s: string) : Boolean {
@@ -65,6 +65,7 @@ export function traverseLiteral(c: TreeCursor, s: string): Literal<null> {
 
 function traverseTypedVar(c : TreeCursor, s : string) : TypedVar<null> {
   const varDec = s.substring(c.from, c.to);
+  if(varDec == "self")
   c.nextSibling();  // a - TypeDef
   c.firstChild(); // :
   c.nextSibling(); //int / bool
@@ -402,7 +403,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
   }
 }
 
-export function traverseFunDef(c : TreeCursor, s : string) : FunDef<null>{
+export function traverseFunDef(c : TreeCursor, s : string) : MethodDef<null>{
   c.firstChild();  //def
   c.nextSibling(); //function name
   const functionName = s.substring(c.from, c.to);
@@ -411,8 +412,11 @@ export function traverseFunDef(c : TreeCursor, s : string) : FunDef<null>{
   c.nextSibling(); // param
   const paramList :TypedVar<null>[] = [];
   do {
-    if (c.type.name === ")") break;   // function has no parameters
-    paramList.push(traverseTypedVar(c, s));
+    if (c.type.name === ")") break;  
+    if(c.type.name == "self") continue;
+    // function has no parameters
+    var param = traverseTypedVar(c, s);
+    paramList.push(param)
     c.nextSibling();
   } while(c.nextSibling())
   c.parent();
@@ -490,7 +494,7 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
           continue;
         }
         else {
-          return {varinits : inits , classes : classDef , stmts : stmts};
+          return {varinits : inits , classdef : classDef , stmts : stmts};
         }
         }
       while(true)
@@ -509,7 +513,7 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
       console.log("fun",classDef)
       console.log("body",stmts)
 
-      return {varinits : inits , classes : classDef , stmts : stmts};
+      return {varinits : inits , classdef : classDef , stmts : stmts};
     default:
       throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);
   }
@@ -545,7 +549,7 @@ export function traverseClassDef(c : TreeCursor, s : string) : ClassDef<null> {
   }
   c.nextSibling();
   const inits : VarInit<null>[] = [];
-  const funDefs : FunDef<null>[] = [];
+  const funDefs : MethodDef<null>[] = [];
   // process varinits and methoddefs
   do{
       if(isVarDecl(c,s)){

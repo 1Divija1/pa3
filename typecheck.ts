@@ -31,9 +31,7 @@ export function typeCheckProgram(prog:Program<null>) : Program<Type>{
     const env : TypeEnv = {
         vars: new Map(), classes: new Map(), retType : "none"};
 
-    const classevn : ClassData = {
-        
-    }
+    const classevn : ClassData = {}
 
     // check inits
     const typedVarInit = typeCheckVarInit(prog.varinits, env);

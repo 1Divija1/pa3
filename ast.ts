@@ -1,4 +1,4 @@
-export type Program<A> = { a?: A, varinits : VarInit<A>[], fundefs : FunDef<A>[], stmts : Stmt<A>[]}
+export type Program<A> = { a?: A, varinits : VarInit<A>[], stmts : Stmt<A>[], classes: ClassDef<A>[]}
 
 export type VarInit<A> = { a?: A, name : string, type: Type , init : Literal<A> }
 
@@ -6,9 +6,12 @@ export type FunDef<A> = { a?: A, name: string, params : TypedVar<A>[], ret : Typ
 
 export type TypedVar<A> = { a?: A, name: string, type: Type }
 
+export type ClassDef<A> = { a?: A, name: string, varinits: VarInit<A>[], methodDefs: FunDef<A>[], super: Type}
+
 
 export type Stmt<A> =
   | { a?: A, tag: "assign", name: string, value: Expr<A> }
+  | { a?: A, tag: "luassign", lhs: Expr<A>, name: string, rhs: Expr<A>} 
   | { a?: A, tag: "return", expr: Expr<A> }
   | { a?: A, tag: "pass" }
   | { a?: A, tag: "expr", expr: Expr<A> }
@@ -24,14 +27,23 @@ export type Expr<A> =
   | { a?: A, tag: "binaryexp", op: BinaryOp, left: Expr<A>, right: Expr<A> }
   | { a?: A, tag: "call", name:string, args: Expr<A>[] }
   | { a?: A, tag: "literal", literal: Literal<A> }
+  | { a?: A, tag: "lookup", obj: Expr<A>, name: string }
+  | { a?: A, tag: "methodcall", obj: Expr<A>, name: string, args: Expr<A>[]}
 
 export type Literal<A> = 
     { a?: A, tag : "num", value: number}
   | { a?: A, tag : "bool", value: boolean }
   | { a?: A, tag : "none"}
+  | { tag: "class", name: string}              // r1  = Rat()
+
 
 export enum UnaryOp { Not = "not", Minus = "-" };
 
 export enum BinaryOp { Plus = "+", Minus = "-", Mul = "*", Div = "//" , Mod = "%", Equal = "==" , NotEqual = "!=", LessEqual = "<=", GreaterEqual = ">=" , Less = "<", Greater = ">"}
 
-export enum Type {int, bool, none}
+
+export type Type =
+|  "int"
+|  "bool" 
+|  "none"
+| { tag: "class", name: string}         //r1 : Rat = none

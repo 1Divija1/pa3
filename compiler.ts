@@ -104,7 +104,7 @@ export function codeGenFunction(func: FunDef<Type>, locals :LocalEnv) : Array<st
   return [`(func $${func.name} ${params} (result i32)
     (local $scratch i32)
     ${varDecls}
-    ${stmtsBody})`];
+    ${stmtsBody}`,`(i32.const 0)`,` )`];
 }
 
 
@@ -171,7 +171,7 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv) : Array<string> {
       var elifcond = codeGenExpr(stmt.elif, locals)
       var elifbody = stmt.elifbody.map(s => codeGenStmt(s, locals)).flat();
       if (elifcond.length > 0) {
-        result.push(`(else`, ...elifcond, `(if`, `(then`, ...elifbody, `)`);
+        result.push(`(else`, ...elifcond, `(if`, `( then`, ...elifbody, `)`, `)`, `)`);
         }
       }
       
@@ -179,6 +179,7 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv) : Array<string> {
       if (elsebody.length > 0) {
         result.push(`(else`, ...elsebody, `)`);
       }
+      result.push(`)`);
       return result;
     }
     case "while":{

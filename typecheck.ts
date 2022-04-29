@@ -1,4 +1,4 @@
-import { Expr, FunDef, Literal, Program , Type, VarInit, Stmt, TypedVar, UnaryOp, BinaryOp}  from './ast';
+import { Expr, FunDef, Literal, Program , Type, VarInit, Stmt, TypedVar, UnaryOp, BinaryOp, ClassDef}  from './ast';
 
 //This Map stores the variable and Type when we declare a variable
 // we use this to check if the var exists in this or when we are making
@@ -7,19 +7,33 @@ import { Expr, FunDef, Literal, Program , Type, VarInit, Stmt, TypedVar, UnaryOp
 // funs = function name , type of arguments, return type
 type TypeEnv = {
     vars : Map<string, Type>,
-    funs : Map<string, [Type[], Type]>,
+    classes : Map<string, ClassData>,
     retType : Type
 }
 
+type ClassData = {
+    vars : Map<string, Type>,
+    funs : Map<string, [Type[], Type]>,
+}
+
+
 function duplicateEnv(env: TypeEnv) : TypeEnv {
-    return { vars : new Map(env.vars) , funs : new Map(env.funs), retType : env.retType}
+    return { vars : new Map(env.vars), classes : new Map(env.classes), retType : env.retType}
+}
+
+function classenv(classenv : ClassData) : ClassData {
+    return { vars : new Map(classenv.vars), funs : new Map(classenv.funs)}
 }
 
 
 export function typeCheckProgram(prog:Program<null>) : Program<Type>{
     //create new env
     const env : TypeEnv = {
-        vars: new Map(), funs: new Map(), retType: Type.none};
+        vars: new Map(), classes: new Map(), retType : "none"};
+
+    const classevn : ClassData = {
+        
+    }
 
     // check inits
     const typedVarInit = typeCheckVarInit(prog.varinits, env);
@@ -30,11 +44,12 @@ export function typeCheckProgram(prog:Program<null>) : Program<Type>{
 
     // add function defs to env
     // check function
-    const funDefs : FunDef<Type>[] = [];
-    prog.fundefs.forEach(funs => {
-        const funDef = typeCheckFunDefs(funs, env);
-        env.funs.set(funs.name , [funs.params.map(param => param.type), funs.ret]);
-        funDefs.push(funDef);
+    const classDefs : ClassDef<Type>[] = [];
+    prog.classes.forEach(class => {
+        const classDef = typeCheckClassDefs(class, env);
+        env.classes.set(class.name, classdata)
+        classDefs.push(classDef)
+       
     })
 
     // check statements
@@ -42,7 +57,7 @@ export function typeCheckProgram(prog:Program<null>) : Program<Type>{
     const typedStmts = typeCheckStmts(prog.stmts, env)
 
 
-    return {...prog, varinits : typedVarInit , fundefs : funDefs , stmts : typedStmts};
+    return {...prog, varinits : typedVarInit , classes : classDefs , stmts : typedStmts};
     
 }
 
@@ -65,6 +80,10 @@ export function typeCheckParams(params: TypedVar<null>) : TypedVar<Type> {
  
         return{ ...params, a: params.type};
         
+}
+
+export function typeCheckClassDefs( classes : ClassDef<null> , env : TypeEnv) : ClassDef<Type>[]{
+
 }
 
 export function typeCheckFunDefs( fun :  FunDef<null>, env: TypeEnv) : FunDef<Type> {

@@ -46,4 +46,4 @@ export type Type =
 |  "int"
 |  "bool" 
 |  "none"
-| { tag: "class", name: string}         //r1 : Rat = none
+| { tag: "object", name: string}         //r1 : Rat = none

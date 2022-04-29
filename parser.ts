@@ -65,7 +65,6 @@ export function traverseLiteral(c: TreeCursor, s: string): Literal<null> {
 
 function traverseTypedVar(c : TreeCursor, s : string) : TypedVar<null> {
   const varDec = s.substring(c.from, c.to);
-  if(varDec == "self")
   c.nextSibling();  // a - TypeDef
   c.firstChild(); // :
   c.nextSibling(); //int / bool
@@ -87,7 +86,7 @@ function traverseType(c : TreeCursor, s : string) : Type {
     case "None":
       return "none"
   }
-  return {tag: "class", name: s.substring(c.from, c.to)}  
+  return {tag: "object", name: s.substring(c.from, c.to)}  
 }
 
 
@@ -566,7 +565,7 @@ export function traverseClassDef(c : TreeCursor, s : string) : ClassDef<null> {
       }
      } while(c.nextSibling())
   
-      return { name : classname, varinits : inits , methodDefs : funDefs, super :  {tag:"class", name:"object"}};
+      return { name : classname, varinits : inits , methodDefs : funDefs, super :  {tag:"object", name:"object"}};
     }
     
 

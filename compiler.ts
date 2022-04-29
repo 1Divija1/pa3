@@ -32,8 +32,7 @@ export async function run(watSource : string, config: any) : Promise<number> {
 export function compile(source: string) : string {
   let ast = typeCheckProgram(parse(source));
   const emptyEnv = new Map<string, boolean>();
-  const emptyclassEnv = new Map<string, [Map<string, Type>, Map <string, [Type[], Type]>]>();
-
+  const classEnv = new Map<string, ClassData>();
   // check for variables 
   const varDecls = ast.varinits.map(v => `(global $${v.name} (mut i32) (i32.const 0))`).join("\n");
   var heap = `(global $heap (mut i32) (i32.const 4))`
@@ -42,11 +41,11 @@ export function compile(source: string) : string {
   //classes 
   const classdefs : string[] = [];
   ast.classdef.forEach(classes => {
-    classdefs.push(codeGenClassDefs(classes, emptyclassEnv, emptyEnv).join("\n"));
+    classdefs.push(codeGenClassDefs(classes, classEnv, emptyEnv).join("\n"));
   })
   classdefs.join("\n\n");
   //  statements
-  const allStmts = ast.stmts.map(s => codeGenStmt(s, emptyclassEnv)).flat();
+  const allStmts = ast.stmts.map(s => codeGenStmt(s,emptyEnv, classEnv)).flat();
   const main = [`(local $scratch i32)`,...varInits, ...allStmts].join("\n");
 
   var retType = "";
@@ -65,6 +64,7 @@ export function compile(source: string) : string {
 
   return `
     (module
+      (import "mem" "heap" (memory $0 1))
       (func $print_num (import "imports" "print_num") (param i32) (result i32))
       (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
       (func $print_none (import "imports" "print_none") (param i32) (result i32))
@@ -84,22 +84,20 @@ export function compile(source: string) : string {
 }
 
 function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localenv : LocalEnv) : string []{
-  const withParamsAndVariables = new Map<string, [Map<string, Type>, Map <string, [Type[], Type]>]>(classenv.entries());
   // check for variables 
-  classdef.varinits.forEach(v => withParamsAndVariables.set(classdef.name, [v.name, classdef.methodDefs] ));
-  const varInits = codeGenFields(classdef.varinits, withParamsAndVariables).join("\n");
+  const varInits = codeGenFields(classdef.varinits, classenv).join("\n");
   
   //methods
   const methoddef : string[] = [];
   classdef.methodDefs.forEach(f => {
-    methoddef.push(codeGenMethod(classdef, f, classenv).join("\n"));
+    methoddef.push(codeGenMethod(classdef, f, classenv,localenv).join("\n"));
   })
   methoddef.join("\n\n");
 
-  return [`(class $${classdef.name} (result i32)
+  return [`
     (local $scratch i32)
     ${varInits}
-    ${funcdef}`,`(i32.const 0)`,` )`];
+    ${methoddef}`,` )`];
   
 
 }
@@ -107,6 +105,10 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
 function codeGenFields(varInit : VarInit<Type>[], classenv: classEnv) : string[]{
   var compiledDefs:string[] = []; 
 
+  varInit.forEach(v => {
+    compiledDefs = [...compiledDefs,...codeGenLiteral(v.init)];
+
+  })
   return compiledDefs
 
 }
@@ -118,19 +120,19 @@ function codeGenVarDefs(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
        console.log(v.name)
        compiledDefs.push(`(local $${v.name} i32)`);
 
-       compiledDefs = [...compiledDefs,...codeGenLiteral(v.init, env)];
+       compiledDefs = [...compiledDefs,...codeGenLiteral(v.init)];
 
        compiledDefs.push(`(local.set $${v.name})`); 
       }
     else { 
-      compiledDefs = [...compiledDefs,...codeGenLiteral(v.init, env)];
+      compiledDefs = [...compiledDefs,...codeGenLiteral(v.init)];
       compiledDefs.push(`(global.set $${v.name})`); }  
 
   });
   return compiledDefs;
 }
 
-export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, classenv: classEnv) : Array<string> {
+export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, classenv: classEnv , locals: LocalEnv) : Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
   func.params.forEach(p => withParamsAndVariables.set(p.name, true));
   const params = func.params.map(p => `(param $${p.name} i32)`).join(" ");
@@ -138,8 +140,9 @@ export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, 
   func.inits.forEach(v => withParamsAndVariables.set(v.name, true));
   const varDecls = codeGenVarDefs(func.inits, withParamsAndVariables).join("\n");
 
-  const stmts = func.body.map(s => codeGenStmt(s, withParamsAndVariables)).map(f => f.join("\n"));
+  const stmts = func.body.map(s => codeGenStmt(s, withParamsAndVariables, classenv)).map(f => f.join("\n"));
   const stmtsBody = stmts.join("\n");
+
   return [`(func $${func.name} ${classdef.name} ${params}  (result i32)
     (local $scratch i32)
     ${varDecls}
@@ -147,7 +150,7 @@ export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, 
 }
 
 
-export function codeGenLiteral(literal : Literal<Type>, locals : LocalEnv) {
+export function codeGenLiteral(literal : Literal<Type>) {
   switch(literal.tag){
     case "num" : return [`(i32.const ${literal.value})`];
     case "bool": 
@@ -250,7 +253,7 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : 
 
 function codeGenExpr(expr : Expr<Type>, locals : LocalEnv, classenv: classEnv) : Array<string> {
   switch(expr.tag) {
-    case "literal": return codeGenLiteral(expr.literal , locals);
+    case "literal": return codeGenLiteral(expr.literal);
     case "id":
       // Since we type-checked for making sure all variable exist, here we
       // just check if it's a local variable and assume it is global if not
@@ -279,6 +282,25 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv, classenv: classEnv) :
       return [...lhsExprs, ...rhsExprs, ...opstmts];
     }
     case "call":
+      if(classenv.has(expr.name)){
+        let initvals = [];
+        const classdata = classenv.get(expr.name);
+        classdata.vars.forEach((f,index)=>{
+          var offset = index * 4;
+          initvals = [
+              ...initvals,
+              `(global.get $heap)`,
+              `(i32.add (i32.const ${offset}))`,
+              ...codeGenExpr(expr, locals, classenv),
+              `i32.store`
+          ];
+        });
+        return [
+          ...initvals,
+          `(global.get $heap)`,
+          `(global.set $heap (i32.add (global.get $heap)(i32.const ${classData.vars.size*4})))`
+        ]
+      }
       const valStmts = expr.args.map(e => codeGenExpr(e, locals, classenv)).flat();
       return valStmts;
     

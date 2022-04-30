@@ -5,10 +5,10 @@ import {compile} from './compiler';
 //var ast = parse(" a : int = 10 \n class hello(object): \n b : int = 0 \n   def new(self, n : int, d : int) -> Rat:\n");
 //var ast = parse("x : int = 50 \n if x < 5: \n x = 5 \n elif x > 5: \n x = 5 \n else: \n x = 10 \n print(x)");
 //var ast = parse(" r1.n = 10 \n r1 = 5 \n");
-var ast = parse(" class C(object):\n  x : int = 1\n  y : int = 2\n\nclass D(object):\n  y : int = 3\n  x : int = 4\nc : C = None\nd : D = None\nc = C()\nd = D()\nprint(c.x)\nprint(d.x)\n");
+var ast = parse(" x : int = 0");
 
 
-compile("class C(object):\n  x : int = 1\n  y : int = 2\n\nclass D(object):\n  y : int = 3\n  x : int = 4\nc : C = None\nd : D = None\nc = C()\nd = D()\nprint(c.x)\nprint(d.x)\n");
+compile("x : int = None");
 console.log(JSON.stringify(ast, null, 2))
 
 

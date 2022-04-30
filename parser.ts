@@ -329,7 +329,7 @@ export function traverseStmt(c : TreeCursor, s : string) : Stmt<null> {
       return { tag: "expr", expr: expr };
     case "⚠":
     case "PassStatement":
-      { tag : "pass"}
+      return { tag : "pass"}
     case "ReturnStatement":
       c.firstChild();  // return
       c.nextSibling(); // arg
@@ -477,7 +477,7 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
       const classDef : ClassDef<null>[] = [];
       const stmts : Stmt<null>[] = [];
       c.firstChild();
-      do{
+      do {
         if(isVarDecl(c,s)){
           inits.push(traverseVarInit(c,s));
           console.log(inits)
@@ -496,8 +496,10 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
         else {
           return {varinits : inits , classdef : classDef , stmts : stmts};
         }*/
-        c.nextSibling();
+        if (!c.nextSibling()) {
+          break;
         }
+      }
       while(true)
       do{
        if(isVarDecl(c,s)){

@@ -9,6 +9,7 @@ type LocalEnv = Map<string, boolean>;
 
 type classEnv = Map<string, ClassDef<Type>>;
 
+type varclassMapEnv = Map<string, string>;
 
 var loop = 0;
 type CompileResult = {
@@ -28,7 +29,7 @@ export function compile(source: string) : string {
   let ast = typeCheckProgram(parse(source));
   const emptyEnv = new Map<string, boolean>();
   const classMap = new Map<string, ClassDef<Type>>();
-  const varclassMap = new Map<string, string>();
+  var varclassMap = new Map<string, string>();
   // check for variables 
   const varDecls = ast.varinits.map(v => `(global $${v.name} (mut i32) (i32.const 0))`).join("\n");
   var heap = `(global $heap (mut i32) (i32.const 4))`
@@ -83,7 +84,7 @@ export function compile(source: string) : string {
   `;
 }
 
-function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localenv : LocalEnv, varclassMap : Map<string, string>) : string{
+function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localenv : LocalEnv, varclassMap : varclassMapEnv) : string{
   
   //methods
   const methoddef : string[] = [];
@@ -104,7 +105,7 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
   return `${methoddef}`;
 }
 
-function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv, varclassMap : Map<string, string>) : string[] {
+function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv, varclassMap : varclassMapEnv) : string[] {
 
   var compiledDefs:string[] = []; 
   varInit.forEach(v => {
@@ -130,7 +131,7 @@ function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv, varclassMap :
 }
 
 export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, classenv: classEnv , 
-    locals: LocalEnv, varclassMap : Map<string, string>) : Array<string> {
+    locals: LocalEnv, varclassMap : varclassMapEnv) : Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
   func.params.forEach(p => withParamsAndVariables.set(p.name, true));
   const params = func.params.map(p => `(param $${p.name} i32)`).join(" ");
@@ -199,7 +200,7 @@ switch(op){
 }
 }
 
-function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv, varclassMap: Map<string, string>) : Array<string> {
+function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv, varclassMap: varclassMapEnv) : Array<string> {
   switch(stmt.tag) {
     case "assign":
       var assignstmt = codeGenExpr(stmt.value, locals, classenv);

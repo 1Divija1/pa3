@@ -21,7 +21,7 @@ export function typeCheck(source: string) : Type {
 // within another function in your compiler, for example if you need other
 // JavaScript-side helpers
 export async function run(source: string) {
-  let memory = new WebAssembly.Memory({initial:10, maximum:100})
+  let memory = new WebAssembly.Memory({initial:1, maximum:1})
   var importObject_new : any = importObject;
   importObject_new.imports.mem = memory;
   const watSource = compile(source);

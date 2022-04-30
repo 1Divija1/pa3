@@ -66,12 +66,12 @@ export function typeCheckVarInit(inits: VarInit<null>[], env: TypeEnv) : VarInit
         if (init.type != 'none' && init.type.tag == 'object') {
             //@ts-ignore
             if (typedInit.a != "none") {
-                throw new Error("TYPED ERROR: Init Type does not match literal Type")   
+                throw new Error("TYPE ERROR: Init Type does not match literal Type")   
             }
         }
         //@ts-ignore
         else if (typedInit.a !== init.type)
-            throw new Error("TYPED ERROR: Init Type does not match literal Type")
+            throw new Error("TYPE ERROR: Init Type does not match literal Type")
         env.vars.set(init.name, init.type);
         typedInits.push({...init , a : init.type, init: typedInit});
     });

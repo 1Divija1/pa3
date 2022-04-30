@@ -100,7 +100,6 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
     if (!init_found) {
       init_str = `(func $__init__$${classdef.name} (param $self i32) (result i32)
       (local $scratch i32)
-      (nop)
       (local.get $self)
       (return)
       (i32.const 0))`

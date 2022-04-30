@@ -7,12 +7,8 @@ import { typeCheckProgram } from "./typecheck";
 
 type LocalEnv = Map<string, boolean>;
 
-type classEnv = Map<string, ClassData>;
+type classEnv = Map<string, ClassDef<Type>>;
 
-type ClassData = {
-  vars : Map<string, Type>,
-  funs : Map<string, [Type[], Type]>,
-}
 
 var loop = 0;
 type CompileResult = {
@@ -28,24 +24,24 @@ export async function run(watSource : string, config: any) : Promise<number> {
   return (wasmModule.instance.exports as any)._start();
 }
 
-
 export function compile(source: string) : string {
   let ast = typeCheckProgram(parse(source));
   const emptyEnv = new Map<string, boolean>();
-  const classEnv = new Map<string, ClassData>();
+  const classMap = new Map<string, ClassDef<Type>>();
   // check for variables 
   const varDecls = ast.varinits.map(v => `(global $${v.name} (mut i32) (i32.const 0))`).join("\n");
   var heap = `(global $heap (mut i32) (i32.const 4))`
-  const varInits : string[] = codeGenVarDefs(ast.varinits, emptyEnv);
+  const varInits : string[] = codeGenVarInits(ast.varinits, emptyEnv);
   
   //classes 
   const classdefs : string[] = [];
   ast.classdef.forEach(classes => {
-    classdefs.push(codeGenClassDefs(classes, classEnv, emptyEnv).join("\n"));
+    classMap.set(classes.name,classes);
+    classdefs.push(codeGenClassDefs(classes, classMap, emptyEnv).join("\n"));
   })
   classdefs.join("\n\n");
   //  statements
-  const allStmts = ast.stmts.map(s => codeGenStmt(s,emptyEnv, classEnv)).flat();
+  const allStmts = ast.stmts.map(s => codeGenStmt(s,emptyEnv, classMap)).flat();
   const main = [`(local $scratch i32)`,...varInits, ...allStmts].join("\n");
 
   var retType = "";
@@ -57,14 +53,13 @@ export function compile(source: string) : string {
   if(isExpr) {
     retType = "(result i32)";
     retVal = "(local.get $scratch)"
-  }
-    
+  }  
   }
   
 
   return `
     (module
-      (import "mem" "heap" (memory $0 1))
+      (memory (import "imports" "mem") 1)
       (func $print_num (import "imports" "print_num") (param i32) (result i32))
       (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
       (func $print_none (import "imports" "print_none") (param i32) (result i32))
@@ -84,35 +79,27 @@ export function compile(source: string) : string {
 }
 
 function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localenv : LocalEnv) : string []{
-  // check for variables 
-  const varInits = codeGenFields(classdef.varinits, classenv).join("\n");
   
   //methods
   const methoddef : string[] = [];
-  classdef.methodDefs.forEach(f => {
-    methoddef.push(codeGenMethod(classdef, f, classenv,localenv).join("\n"));
-  })
-  methoddef.join("\n\n");
+  var init_found : boolean = false;
+  if(classdef.methodDefs.length > 0){
+    classdef.methodDefs.forEach(method => {
+      if (method.name == "__init__") {
+        init_found = true;
+      }
+      methoddef.push(codeGenMethod(classdef, method, classenv,localenv).join("\n"));
+    })
+    if (!init_found) {
 
-  return [`
-    (local $scratch i32)
-    ${varInits}
-    ${methoddef}`,` )`];
+    }
+    methoddef.join("\n\n");  
+  }
   
-
+  return [`${methoddef}`];
 }
 
-function codeGenFields(varInit : VarInit<Type>[], classenv: classEnv) : string[]{
-  var compiledDefs:string[] = []; 
-
-  varInit.forEach(v => {
-    compiledDefs = [...compiledDefs,...codeGenLiteral(v.init)];
-
-  })
-  return compiledDefs
-
-}
-function codeGenVarDefs(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
+function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
 
   var compiledDefs:string[] = []; 
   varInit.forEach(v => {
@@ -138,16 +125,27 @@ export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, 
   const params = func.params.map(p => `(param $${p.name} i32)`).join(" ");
 
   func.inits.forEach(v => withParamsAndVariables.set(v.name, true));
-  const varDecls = codeGenVarDefs(func.inits, withParamsAndVariables).join("\n");
+  const varDecls = codeGenVarInits(func.inits, withParamsAndVariables).join("\n");
 
   const stmts = func.body.map(s => codeGenStmt(s, withParamsAndVariables, classenv)).map(f => f.join("\n"));
   const stmtsBody = stmts.join("\n");
 
-  return [`(func $${func.name} ${classdef.name} ${params}  (result i32)
+  if(func.name == "__init__"){
+    return [`(func $${func.name} ${classdef.name} ${params}  (result i32)
     (local $scratch i32)
+    (local.get $${func.params[0].name})
+    (return)
     ${varDecls}
     ${stmtsBody}`,`(i32.const 0)`,` )`];
+  }
+  else {
+  return [`(func $${func.name} ${classdef.name} ${params}  (result i32)
+  (local $scratch i32)
+  ${varDecls}
+  ${stmtsBody}`,`(i32.const 0)`,` )`];
+ }
 }
+  
 
 
 export function codeGenLiteral(literal : Literal<Type>) {
@@ -181,6 +179,15 @@ export function codeGenBinaryOp(op : BinaryOp) {
   }
 }
 
+export function codeGenUnaryOp(op : UnaryOp){
+switch(op){
+  case UnaryOp.Not: return [`i32.eqz`];
+  case UnaryOp.Minus: return [`i32.sub`];
+  default:
+      throw new Error(`Unhandled or unknown Unary op: ${op}`);
+}
+}
+
 function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : Array<string> {
   switch(stmt.tag) {
     case "assign":
@@ -193,9 +200,9 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : 
       var lhs = codeGenExpr(stmt.lhs, locals, classenv);
       var rhs = codeGenExpr(stmt.rhs, locals, classenv);
       //@ts-ignore
-      var classData = classenv.get(stmt.a.class)
+      var classData = classenv.get(stmt.lhs.name).varinits
       var indexoffield = indexField(classData, stmt.name)
-    return [ ...lhs, `(i32 const ${indexoffield*4})`, `(i32.add)`,`(i32.store)`, ...rhs]
+    return [ ...lhs, `(i32.const ${indexoffield*4})`, `(i32.add)`,`(i32.store)`, ...rhs]
 
     case "return":
       var result = codeGenExpr(stmt.expr, locals, classenv);
@@ -267,6 +274,7 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv, classenv: classEnv) :
           case "bool": toCall1 = "print_bool"; break;
           case "int": toCall1 = "print_num"; break;
           case "none": toCall1 = "print_none"; break;
+          case undefined : toCall1 = "print_num"; break;
         }
       }
       argStmts.push(`(call $${toCall1})`);
@@ -281,24 +289,29 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv, classenv: classEnv) :
       const opstmts = codeGenBinaryOp(expr.op);
       return [...lhsExprs, ...rhsExprs, ...opstmts];
     }
+    case "unaryexp": {
+      var exprs = codeGenExpr(expr.left, locals, classenv);
+      const op = codeGenUnaryOp(expr.op);
+      return [`i32.const 0`, ...exprs, ...op];
+  }
     case "call":
       if(classenv.has(expr.name)){
-        let initvals = [];
+        let initvals : string[] = [];
         const classdata = classenv.get(expr.name);
-        classdata.vars.forEach((f,index)=>{
+        classdata.varinits.forEach((f,index)=>{
           var offset = index * 4;
           initvals = [
               ...initvals,
               `(global.get $heap)`,
               `(i32.add (i32.const ${offset}))`,
-              ...codeGenExpr(expr, locals, classenv),
+               ...codeGenLiteral(f.init),
               `i32.store`
           ];
         });
         return [
           ...initvals,
           `(global.get $heap)`,
-          `(global.set $heap (i32.add (global.get $heap)(i32.const ${classData.vars.size*4})))`
+          `(global.set $heap (i32.add (global.get $heap)(i32.const ${classdata.varinits.length*4})))`
         ]
       }
       const valStmts = expr.args.map(e => codeGenExpr(e, locals, classenv)).flat();
@@ -307,21 +320,19 @@ function codeGenExpr(expr : Expr<Type>, locals : LocalEnv, classenv: classEnv) :
     case "lookup":
       const objstmts = codeGenExpr(expr.obj, locals, classenv)
       //@ts-ignore
-      var classData = classenv.get(expr.obj.a.class)
+      var classData = classenv.get(expr.obj.a.class).varinits
       var indexoffield = indexField(classData, expr.name)
-      return [ ...objstmts, `(i32 const ${indexoffield*4})`, `(i32.add)`,`(i32.load)`]
+      return [ ...objstmts, `(i32.const ${indexoffield*4})`, `(i32.add)`,`(i32.load)`]
 
   }
 }
 
-function indexField(classdata : ClassData, field : string) : number {
-var indexField : number
-for(indexField = 0 ; indexField < classData.vars.size; indexField++){
-  if(classData.vars.keys.name == field) 
-  return indexField
+function indexField(varInit : VarInit<Type>[], field : string) : number {
+var indexofField : number = -1
+for(var idx = 0 ; idx < varInit.length; idx++){
+  if(varInit[idx].name == field) 
+      indexofField = idx
 }
-return indexField
-
-
+return indexofField;
 } 
 }

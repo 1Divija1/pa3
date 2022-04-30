@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // document.getElementById("output").appendChild(elt);
     // elt.innerText = arg + "\n";
   }
+  let memory = new WebAssembly.Memory({initial:10, maximum:100})
   var importObject = {
     imports: {
       print_num: (arg : any) => {
@@ -26,6 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         display("None");
         return arg;
       },
+      mem : memory,
       abs : Math.abs,
       min : Math.min,
       max : Math.max,

@@ -62,7 +62,15 @@ export function typeCheckVarInit(inits: VarInit<null>[], env: TypeEnv) : VarInit
     const typedInits : VarInit<Type>[] = [];
     inits.forEach(init => {
         const typedInit = typeCheckLiteral(init.init)
-        if (typedInit.tag !== init.type)
+        //@ts-ignore
+        if (init.type != 'none' && init.type.tag == 'object') {
+            //@ts-ignore
+            if (typedInit.a != "none") {
+                throw new Error("TYPED ERROR: Init Type does not match literal Type")   
+            }
+        }
+        //@ts-ignore
+        else if (typedInit.a !== init.type)
             throw new Error("TYPED ERROR: Init Type does not match literal Type")
         env.vars.set(init.name, init.type);
         typedInits.push({...init , a : init.type, init: typedInit});
@@ -148,7 +156,7 @@ const typedStmts : Stmt<Type>[] = [];
                 throw new Error("TYPE ERROR : unbound id")
             //    
             const typedValue = typeCheckExpr(stmt.value , env);
-            if ( typedValue.a !== env.vars.get(stmt.name))
+            if (typedValue.a != undefined && typedValue.a !== env.vars.get(stmt.name))
                 throw new Error("TYPE ERROR : cannot assign value to id")
             typedStmts.push({...stmt, value : typedValue, a: "none" as Type})
             break;
@@ -162,9 +170,9 @@ const typedStmts : Stmt<Type>[] = [];
             if(lhs.a == "int" || lhs.a == "bool" || lhs.a == "none"){
                 throw new Error("TYPE ERROR: obj is not of type object");
             }
-            var field = env.classes.get(lhs.a.name).vars.get(stmt.name)
+            var field = env.classes.get(lhs.a.class).vars.get(stmt.name)
 
-            if(stmt.name != field){
+            if(undefined == field){
                 throw new Error("TYPE ERROR : variable not present in class")
             }
             
@@ -172,7 +180,7 @@ const typedStmts : Stmt<Type>[] = [];
             if(rhs.a != lhs.a){
                 throw new Error("TYPE ERROR : Type mismatch on both sides of the equality symbol")
             }
-            typedStmts.push({...stmt, lhs, name : field, rhs })
+            typedStmts.push({...stmt, lhs, name : stmt.name, rhs })
 
             break;
         
@@ -245,7 +253,6 @@ const typedStmts : Stmt<Type>[] = [];
 export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
     switch(expr.tag){
         case "id":
-            if(expr.name === "self") 
             if(!env.vars.has(expr.name))
                 throw new Error("TYPE CHECK: unbound id")
             const idType = env.vars.get(expr.name);
@@ -354,18 +361,18 @@ export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
         case "lookup":
             const lhs = typeCheckExpr(expr.obj , env);
             //@ts-ignore
-            if(lhs.a.tag != "object"){
+            if(lhs.a.tag != 'object'){
                 throw new Error("TYPE ERROR: obj is not of type object");
             }
             if(lhs.a == "int" || lhs.a == "bool" || lhs.a == "none"){
                 throw new Error("TYPE ERROR: obj is not of type object");
             }
-            var field = env.classes.get(lhs.a.name).vars.get(expr.name)
-            if(expr.name != field){
+            var field = env.classes.get(lhs.a.class).vars.get(expr.name)
+            if(undefined == field){
                 throw new Error("TYPE ERROR : variable not present in class")
             }
 
-            return {...expr, obj : lhs, name : field}
+            return {...expr, obj : lhs, name : expr.name}
         case "literal":
             const lit = typeCheckLiteral(expr.literal)
             //@ts-ignore

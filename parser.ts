@@ -86,7 +86,7 @@ function traverseType(c : TreeCursor, s : string) : Type {
     case "None":
       return "none"
   }
-  return {tag: "object", name: s.substring(c.from, c.to)}  
+  return {tag: "object", class: s.substring(c.from, c.to)}  
 }
 
 
@@ -212,8 +212,9 @@ export function traverseExpr(c : TreeCursor, s : string) : Expr<null> {
     
       case "UnaryExpression":
         c.firstChild(); // arg
+        var op_string : string = s.substring(c.from, c.to);
         var op1 : UnaryOp;
-        switch(op1) {
+        switch(op_string) {
           case "-":
             op1 = UnaryOp.Minus
             break;
@@ -486,27 +487,26 @@ export function traverseProgram(c : TreeCursor, s : string) : Program<null>{
           console.log(classDef)
 
         }
-        else{
+        else {
           break;
         }
-        if(c.nextSibling()){
+     /*   if(c.nextSibling()){
           continue;
         }
         else {
           return {varinits : inits , classdef : classDef , stmts : stmts};
-        }
+        }*/
+        c.nextSibling();
         }
       while(true)
-
       do{
-        if(isVarDecl(c,s) || isClassDef(c,s)){
-          throw new Error("PARSE ERROR : variables and classes declaration should be first");
-        }
-        else {
-          stmts.push(traverseStmt(c,s));
-        }
-       traverseStmt(c, s);
-       
+       if(isVarDecl(c,s)){
+        inits.push(traverseVarInit(c,s));
+       }
+       else{
+        stmts.push(traverseStmt(c,s));
+       }
+
       } while(c.nextSibling())
       console.log("inits",inits)
       console.log("fun",classDef)
@@ -529,10 +529,6 @@ export function traverseClassDef(c : TreeCursor, s : string) : ClassDef<null> {
   var classname = s.substring(c.from, c.to);
 
   c.nextSibling(); // ArgList
-  const arglist = s.substring(c.from, c.to);
-  if(arglist !== "Arglist"){
-    throw new Error("ParseError: Arglist not present");
-  }
   c.firstChild();  // (
   c.nextSibling(); // should be object
   var object = s.substring(c.from, c.to);
@@ -564,8 +560,9 @@ export function traverseClassDef(c : TreeCursor, s : string) : ClassDef<null> {
         throw new Error("PARSE ERROR : A Class can have only AssignStatement or FunctionDefinition");
       }
      } while(c.nextSibling())
-  
-      return { name : classname, varinits : inits , methodDefs : funDefs, super :  {tag:"object", name:"object"}};
+     c.parent(); //body
+     c.parent();
+     return { name : classname, varinits : inits , methodDefs : funDefs, super :  {tag:"object", class:"object"}};
     }
     
 

@@ -176,8 +176,8 @@ const typedStmts : Stmt<Type>[] = [];
                 throw new Error("TYPE ERROR : variable not present in class")
             }
             
-            const rhs = typeCheckExpr(stmt.lhs , env);
-            if(rhs.a != lhs.a){
+            const rhs = typeCheckExpr(stmt.rhs , env);
+            if(rhs.a != field){
                 throw new Error("TYPE ERROR : Type mismatch on both sides of the equality symbol")
             }
             typedStmts.push({...stmt, lhs, name : stmt.name, rhs })

@@ -28,20 +28,25 @@ export function compile(source: string) : string {
   let ast = typeCheckProgram(parse(source));
   const emptyEnv = new Map<string, boolean>();
   const classMap = new Map<string, ClassDef<Type>>();
+  const varclassMap = new Map<string, string>();
   // check for variables 
   const varDecls = ast.varinits.map(v => `(global $${v.name} (mut i32) (i32.const 0))`).join("\n");
   var heap = `(global $heap (mut i32) (i32.const 4))`
-  const varInits : string[] = codeGenVarInits(ast.varinits, emptyEnv);
+  const varInits : string[] = codeGenVarInits(ast.varinits, emptyEnv, varclassMap);
   
   //classes 
   const classdefs : string[] = [];
   ast.classdef.forEach(classes => {
     classMap.set(classes.name,classes);
-    classdefs.push(codeGenClassDefs(classes, classMap, emptyEnv).join("\n"));
+    var str : string = codeGenClassDefs(classes, classMap, emptyEnv, varclassMap)
+    if (str.length > 0) {
+      classdefs.push(str);
+    }
+    classdefs.join("\n");
   })
   classdefs.join("\n\n");
   //  statements
-  const allStmts = ast.stmts.map(s => codeGenStmt(s,emptyEnv, classMap)).flat();
+  const allStmts = ast.stmts.map(s => codeGenStmt(s,emptyEnv, classMap, varclassMap)).flat();
   const main = [`(local $scratch i32)`,...varInits, ...allStmts].join("\n");
 
   var retType = "";
@@ -78,7 +83,7 @@ export function compile(source: string) : string {
   `;
 }
 
-function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localenv : LocalEnv) : string []{
+function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localenv : LocalEnv, varclassMap : Map<string, string>) : string{
   
   //methods
   const methoddef : string[] = [];
@@ -88,7 +93,7 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
       if (method.name == "__init__") {
         init_found = true;
       }
-      methoddef.push(codeGenMethod(classdef, method, classenv,localenv).join("\n"));
+      methoddef.push(codeGenMethod(classdef, method, classenv,localenv, varclassMap).join("\n"));
     })
     if (!init_found) {
 
@@ -96,13 +101,18 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
     methoddef.join("\n\n");  
   }
   
-  return [`${methoddef}`];
+  return `${methoddef}`;
 }
 
-function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
+function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv, varclassMap : Map<string, string>) : string[] {
 
   var compiledDefs:string[] = []; 
   varInit.forEach(v => {
+    // @ts-ignore
+    if (v.type.class != undefined) {
+      // @ts-ignore
+      varclassMap.set(v.name, v.type.class)
+    }
     if(env.has(v.name)) {
        console.log(v.name)
        compiledDefs.push(`(local $${v.name} i32)`);
@@ -119,15 +129,16 @@ function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv) : string[] {
   return compiledDefs;
 }
 
-export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, classenv: classEnv , locals: LocalEnv) : Array<string> {
+export function codeGenMethod(classdef : ClassDef<Type>, func: MethodDef<Type>, classenv: classEnv , 
+    locals: LocalEnv, varclassMap : Map<string, string>) : Array<string> {
   const withParamsAndVariables = new Map<string, boolean>(locals.entries());
   func.params.forEach(p => withParamsAndVariables.set(p.name, true));
   const params = func.params.map(p => `(param $${p.name} i32)`).join(" ");
 
   func.inits.forEach(v => withParamsAndVariables.set(v.name, true));
-  const varDecls = codeGenVarInits(func.inits, withParamsAndVariables).join("\n");
+  const varDecls = codeGenVarInits(func.inits, withParamsAndVariables, varclassMap).join("\n");
 
-  const stmts = func.body.map(s => codeGenStmt(s, withParamsAndVariables, classenv)).map(f => f.join("\n"));
+  const stmts = func.body.map(s => codeGenStmt(s, withParamsAndVariables, classenv, varclassMap)).map(f => f.join("\n"));
   const stmtsBody = stmts.join("\n");
 
   if(func.name == "__init__"){
@@ -188,7 +199,7 @@ switch(op){
 }
 }
 
-function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : Array<string> {
+function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv, varclassMap: Map<string, string>) : Array<string> {
   switch(stmt.tag) {
     case "assign":
       var assignstmt = codeGenExpr(stmt.value, locals, classenv);
@@ -200,9 +211,10 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : 
       var lhs = codeGenExpr(stmt.lhs, locals, classenv);
       var rhs = codeGenExpr(stmt.rhs, locals, classenv);
       //@ts-ignore
-      var classData = classenv.get(stmt.lhs.name).varinits
+      var name : any = varclassMap.get(stmt.lhs.name)
+      var classData = classenv.get(name).varinits
       var indexoffield = indexField(classData, stmt.name)
-    return [ ...lhs, `(i32.const ${indexoffield*4})`, `(i32.add)`,`(i32.store)`, ...rhs]
+    return [ ...lhs, `(i32.const ${indexoffield*4})`, `(i32.add)`,...rhs,`(i32.store)`]
 
     case "return":
       var result = codeGenExpr(stmt.expr, locals, classenv);
@@ -220,19 +232,19 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : 
       var result : string[] = [];
       console.log("result", result);
       let ifcond = codeGenExpr(stmt.ifcond, locals, classenv)
-      var ifbody = stmt.ifbody.map(s => codeGenStmt(s, locals, classenv)).flat();
+      var ifbody = stmt.ifbody.map(s => codeGenStmt(s, locals, classenv, varclassMap)).flat();
       console.log("comp cond" , ifcond);
       console.log("comp ifbody" , ifbody);
       result.push(...ifcond, `(if`, `(then`, ...ifbody, `)`);
       if(stmt.elif != null) {
       var elifcond = codeGenExpr(stmt.elif, locals, classenv)
-      var elifbody = stmt.elifbody.map(s => codeGenStmt(s, locals, classenv)).flat();
+      var elifbody = stmt.elifbody.map(s => codeGenStmt(s, locals, classenv, varclassMap)).flat();
       if (elifcond.length > 0) {
         result.push(`(else`, ...elifcond, `(if`, `( then`, ...elifbody, `)`, `)`, `)`);
         }
       }
       
-      var elsebody = stmt.elsebody.map(s => codeGenStmt(s, locals, classenv)).flat();
+      var elsebody = stmt.elsebody.map(s => codeGenStmt(s, locals, classenv, varclassMap)).flat();
       if (elsebody.length > 0) {
         result.push(`(else`, ...elsebody, `)`);
       }
@@ -246,7 +258,7 @@ function codeGenStmt(stmt: Stmt<Type>, locals : LocalEnv, classenv: classEnv) : 
       loop += 1;
     var condExpr = codeGenExpr(stmt.cond, locals, classenv);
 
-    var bodyStmts = stmt.body.map(s => codeGenStmt(s, locals, classenv)).flat();
+    var bodyStmts = stmt.body.map(s => codeGenStmt(s, locals, classenv, varclassMap)).flat();
     return [`(block $label_${bodyLabel}`,
             `(loop $label_${condLabel}`,
             ...condExpr,

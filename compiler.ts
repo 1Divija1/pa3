@@ -88,8 +88,9 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
   
   //methods
   const methoddef : string[] = [];
+  var init_str : string = "";
   var init_found : boolean = false;
-  if(classdef.methodDefs.length > 0){
+  if(classdef.methodDefs.length > 0) {
     classdef.methodDefs.forEach(method => {
       if (method.name == "__init__") {
         init_found = true;
@@ -97,12 +98,21 @@ function codeGenClassDefs(classdef : ClassDef<Type>, classenv: classEnv, localen
       methoddef.push(codeGenMethod(classdef, method, classenv,localenv, varclassMap).join("\n"));
     })
     if (!init_found) {
-
+      init_str = `(func $__init__$${classdef.name} (param $self i32) (result i32)
+      (local $scratch i32)
+      (nop)
+      (local.get $self)
+      (return)
+      (i32.const 0))`
     }
     methoddef.join("\n\n");  
   }
-  
-  return `${methoddef}`;
+  if (init_str.length > 0) {
+    return `${init_str}
+          ${methoddef}`;
+  } else {
+    return `${methoddef}`;
+  }
 }
 
 function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv, varclassMap : varclassMapEnv) : string[] {

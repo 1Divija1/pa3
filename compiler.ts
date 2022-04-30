@@ -73,8 +73,8 @@ export function compile(source: string) : string {
       (func $min (import "imports" "min") (param i32 i32) (result i32))
       (func $max (import "imports" "max") (param i32 i32) (result i32))
       (func $pow (import "imports" "pow") (param i32 i32) (result i32))
-      ${varDecls}
       ${heap}
+      ${varDecls}
       ${classdefs}
       (func (export "_start") ${retType}
         ${main}
@@ -124,7 +124,6 @@ function codeGenVarInits(varInit : VarInit<Type>[], env: LocalEnv, varclassMap :
       varclassMap.set(v.name, v.type.class)
     }
     if(env.has(v.name)) {
-       console.log(v.name)
        compiledDefs.push(`(local $${v.name} i32)`);
 
        compiledDefs = [...compiledDefs,...codeGenLiteral(v.init)];

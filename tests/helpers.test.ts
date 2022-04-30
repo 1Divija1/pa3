@@ -13,7 +13,7 @@ export function typeCheck(source: string) : Type {
   if (length > 0) {
     return_type = program.stmts[length - 1].a
   }
-  return "none";
+  return return_type;
 }
 
 // Modify run to use `importObject` (imported above) to use for printing

@@ -25,7 +25,6 @@ function ClassData(classenv : ClassData) : ClassData {
     return { vars : new Map(classenv.vars), funs : new Map(classenv.funs)}
 }
 
-
 export function typeCheckProgram(prog:Program<null>) : Program<Type>{
     //create new env
     const env : TypeEnv = {
@@ -164,12 +163,10 @@ const typedStmts : Stmt<Type>[] = [];
         case "luassign":
             const lhs = typeCheckExpr(stmt.lhs , env);
             //@ts-ignore
-            if(lhs.a.tag != "object"){
-                throw new Error("TYPE ERROR: obj is not of type object");
+            if(lhs.a.tag != "object" && lhs.a != "int" && lhs.a != "bool" && lhs.a != "none"){
+                throw new Error("TYPE ERROR: Undefined type");
             }
-            if(lhs.a == "int" || lhs.a == "bool" || lhs.a == "none"){
-                throw new Error("TYPE ERROR: obj is not of type object");
-            }
+            //@ts-ignore
             var field = env.classes.get(lhs.a.class).vars.get(stmt.name)
 
             if(undefined == field){
@@ -240,7 +237,7 @@ const typedStmts : Stmt<Type>[] = [];
             break;
         case "expr":
             const typedExpr = typeCheckExpr(stmt.expr, env);
-            typedStmts.push({...stmt, expr: typedExpr, a: "none" as Type});
+            typedStmts.push({...stmt, expr: typedExpr, a: typedExpr.a as Type});
             break;
          default:
             throw new Error("TYPE ERROR : Statement not handled")
@@ -321,18 +318,16 @@ export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
         case "methodcall":
                 const obj = typeCheckExpr(expr.obj, env);
                 //@ts-ignore
-                if(obj.a.tag != "object"){
-                    throw new Error("TYPE ERROR: obj is not of type object");
-                } 
-                
-                if(obj.a == "int" || obj.a == "bool" || obj.a == "none"){
-                    throw new Error("TYPE ERROR: obj is not of type object");
+
+                if(obj.a.tag != "object" && obj.a != "int" && obj.a != "bool" && obj.a != "none"){
+                    throw new Error("TYPE ERROR: Undefined type");
                 }
+                //@ts-ignore
                 
                 if(!env.classes.has(obj.a.tag)) {
                     throw new Error("TYPE ERROR: incorrect class name");
                  }
-
+                //@ts-ignore
                 const classdata = env.classes.get(obj.a.tag);
 
                 if(!classdata.funs.has(expr.name)) { 
@@ -361,18 +356,18 @@ export function typeCheckExpr(expr: Expr<null>, env: TypeEnv) : Expr<Type> {
         case "lookup":
             const lhs = typeCheckExpr(expr.obj , env);
             //@ts-ignore
-            if(lhs.a.tag != 'object'){
-                throw new Error("TYPE ERROR: obj is not of type object");
+            if(lhs.a.tag != "object" && lhs.a != "int" && lhs.a != "bool" && lhs.a != "none"){
+                throw new Error("TYPE ERROR: Undefined type");
             }
-            if(lhs.a == "int" || lhs.a == "bool" || lhs.a == "none"){
-                throw new Error("TYPE ERROR: obj is not of type object");
-            }
+            //@ts-ignore
+            var f = env.classes.get(lhs.a.class).funs.get(expr.name)
+            //@ts-ignore
             var field = env.classes.get(lhs.a.class).vars.get(expr.name)
-            if(undefined == field){
-                throw new Error("TYPE ERROR : variable not present in class")
+            if(undefined == field && undefined == f){
+                throw new Error("TYPE ERROR : variable/func not present in class")
             }
-
-            return {...expr, obj : lhs, name : expr.name}
+            var rettype = field == undefined? f[1] : field
+            return {...expr, obj : lhs, name : expr.name, a:rettype}
         case "literal":
             const lit = typeCheckLiteral(expr.literal)
             //@ts-ignore
